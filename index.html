@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="description" content="一根绣线能有多长？——非遗工坊赋能乡村女性的数据新闻故事">
+<meta property="og:title" content="一根绣线">
+<meta property="og:image" content="assets/images/a8d93f39200f7880f20362aca804f0ed.jpg">
+<title>一根绣线</title>
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;400;700;900&family=Noto+Sans+SC:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="echarts.min.js"></script>
+<style>
+/* ================================================================
+   DESIGN TOKENS
+   ================================================================ */
+:root {
+  --paper:#F9F5EC;--paper-dark:#EFE8D8;
+  --ink:#221C15;--ink-soft:#5C5347;
+  --indigo:#2C3E5C;--indigo-deep:#1A2535;
+  --vermillion:#D4453B;--vermillion-deep:#A8322B;
+  --gold:#C8964E;--gold-light:#E8CC9A;
+  --teal:#5C8B7A;--teal-light:#8BB5A5;
+  --serif:"Noto Serif SC","STKaiti","KaiTi","楷体",Georgia,serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei","微软雅黑",sans-serif;
+  --calligraphy:"Zhi Mang Xing","Ma Shan Zheng","STKaiti","KaiTi","楷体",cursive;
+  --ease:cubic-bezier(0.16,1,0.3,1);--slow:1200ms;--mid:700ms;--fast:300ms;
+  --z-thread:200;--z-nav:190;--z-lightbox:300;--z-cursor:250;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px;-webkit-font-smoothing:antialiased}
+body{font-family:var(--serif);color:var(--ink);background:var(--paper);line-height:1.6;overflow-x:hidden}
+img{max-width:100%;display:block}a{color:inherit;text-decoration:none}
+
+/* ================================================================
+   MOUSE THREAD TRAIL CANVAS
+   ================================================================ */
+#thread-trail{position:fixed;inset:0;z-index:var(--z-cursor);pointer-events:none;opacity:0.7}
+
+/* ================================================================
+   FUZZY CURVED THREAD SPINE
+   ================================================================ */
+#thread-spine{position:fixed;left:0;top:0;width:120px;height:100vh;z-index:var(--z-thread);pointer-events:none}
+#thread-spine svg{width:100%;height:100%}
+.thread-core{fill:none;stroke:var(--vermillion);stroke-width:3;stroke-linecap:round;filter:url(#fuzz)}
+.thread-gold{fill:none;stroke:var(--gold);stroke-width:1.2;stroke-linecap:round;filter:url(#fuzz);opacity:0.55}
+.thread-shadow-line{fill:none;stroke:var(--vermillion-deep);stroke-width:5;opacity:0.2;filter:url(#blur);stroke-linecap:round}
+#needle-group{transition:transform 0.12s linear}
+.needle-body{fill:var(--gold)}.needle-eye{fill:var(--indigo-deep)}
+.needle-thread-loop{fill:none;stroke:var(--vermillion);stroke-width:1.8;stroke-linecap:round;filter:url(#fuzz)}
+.thread-knot{fill:var(--vermillion);opacity:0;transition:opacity 0.5s ease}.thread-knot.lit{opacity:1}
+
+/* ================================================================
+   NAV DOTS
+   ================================================================ */
+#section-nav{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:var(--z-nav);pointer-events:none}
+#section-nav ul{list-style:none;display:flex;flex-direction:column;gap:14px}
+#section-nav a{display:block;width:7px;height:7px;border-radius:50%;background:rgba(44,36,22,0.2);transition:all var(--fast) var(--ease);pointer-events:auto;position:relative}
+#section-nav a:hover,#section-nav a.active{background:var(--vermillion);transform:scale(1.8)}
+#section-nav a::after{content:attr(data-label);position:absolute;right:14px;top:50%;transform:translateY(-50%);white-space:nowrap;font-family:var(--sans);font-size:11px;color:var(--ink-soft);opacity:0;transition:opacity var(--fast)}
+#section-nav a.active::after{opacity:1}
+
+/* ================================================================
+   SECTIONS BASE
+   ================================================================ */
+section{min-height:auto;position:relative;display:flex;align-items:center;padding:clamp(2rem,5vh,5rem) clamp(1.5rem,5vw,4rem) clamp(2rem,5vh,5rem) 150px}
+.section-inner{width:100%;max-width:780px;margin:0 auto;position:relative;z-index:2}
+[data-theme="light"]{background:var(--paper);color:var(--ink)}
+[data-theme="dark"]{background:var(--indigo-deep);color:var(--paper)}
+
+/* 图片偶尔突破容器宽度 */
+.inline-photo--bleed{margin:3rem -8vw;width:calc(100% + 16vw)}
+.inline-photo--bleed img{border-radius:0}
+
+/* 漂浮的针脚装饰 */
+.floating-stitch{
+  position:absolute;pointer-events:none;z-index:0;
+  opacity:0.12;
+}
+.floating-stitch svg{width:100%;height:100%}
+
+/* 页边批注 —— 左侧绣线旁边的小字 */
+.margin-note{
+  position:absolute;left:-110px;top:0;width:90px;
+  font-family:var(--sans);font-size:0.6rem;color:var(--vermillion);
+  opacity:0.4;line-height:1.5;text-align:right;
+  pointer-events:none;z-index:1;
+}
+
+/* ================================================================
+   GALLERY — 绣品长廊（左右滑动）
+   ================================================================ */
+.gallery-track{
+  display:flex;gap:1.2rem;overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+  padding:0 2rem 1rem;cursor:grab;scrollbar-width:none;
+}
+.gallery-track::-webkit-scrollbar{display:none}
+.gallery-track:active{cursor:grabbing}
+.gallery-card{flex:0 0 320px;scroll-snap-align:start}
+.gallery-img{
+  width:100%;height:380px;border-radius:12px;overflow:hidden;
+  background:rgba(255,255,255,0.03);
+}
+.gallery-img img{width:100%;height:100%;object-fit:cover;transition:transform 0.4s var(--ease)}
+.gallery-card:hover .gallery-img img{transform:scale(1.04)}
+.gallery-label{
+  display:block;font-family:var(--serif);font-size:0.8rem;
+  color:rgba(253,248,240,0.5);margin-top:0.5rem;text-align:center;
+}
+@media(max-width:768px){
+  .gallery-card{flex:0 0 260px}.gallery-img{height:300px}
+}
+@media(max-width:480px){
+  .gallery-card{flex:0 0 220px}.gallery-img{height:260px}
+}
+
+/* 数据徽章 —— 关键数字旁的小标记 */
+.data-badge{
+  display:inline-block;font-family:var(--sans);font-size:0.55rem;
+  color:#fff;background:var(--vermillion);padding:1px 7px;border-radius:8px;
+  margin-left:3px;vertical-align:middle;opacity:0.7;
+  letter-spacing:0.05em;
+}
+
+/* 大段留白间隔 */
+.spacer{height:clamp(2rem,6vh,5rem)}
+
+.section-bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+.section-bg img{width:100%;height:100%;object-fit:cover;opacity:0.12;transition:transform 0.3s ease}
+[data-theme="dark"] .section-bg img{opacity:0.18}
+
+.section-num{font-family:var(--serif);font-size:7rem;font-weight:300;line-height:1;opacity:0.06;margin-bottom:-0.1em;margin-left:-0.04em;position:relative;z-index:0}
+[data-theme="dark"] .section-num{opacity:0.05}
+.section-heading{font-family:var(--calligraphy);font-size:clamp(1.8rem,3vw,2.5rem);font-weight:700;line-height:1.2;margin-bottom:clamp(1.5rem,3vh,2.5rem)}
+
+/* ================================================================
+   NARRATIVE + PARALLAX ELEMENTS
+   ================================================================ */
+.narrative{font-family:var(--serif);font-size:1.15rem;line-height:2;margin-bottom:1rem}
+[data-theme="dark"] .narrative{color:rgba(253,248,240,0.85)}
+.narrative strong{color:var(--vermillion)}[data-theme="dark"] .narrative strong{color:var(--gold-light)}
+.narrative a{color:var(--ink-soft);text-decoration:underline;font-family:var(--sans);font-size:0.85rem}
+[data-theme="dark"] .narrative a{color:var(--gold)}
+
+/* Parallax container */
+.parallax{transition:transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)}
+
+/* ================================================================
+   CLICKABLE PHOTOS → lightbox
+   ================================================================ */
+.inline-photo{margin:1.5rem 0;position:relative;z-index:1;cursor:pointer}
+.inline-photo img{width:100%;border-radius:12px;box-shadow:0 4px 24px rgba(44,36,22,0.1);transition:transform 0.3s var(--ease),box-shadow 0.3s var(--ease)}
+.inline-photo:hover img{transform:scale(1.02);box-shadow:0 8px 40px rgba(44,36,22,0.18)}
+.inline-photo:hover::after{content:'点击放大 🔍';position:absolute;top:12px;right:16px;font-family:var(--sans);font-size:0.7rem;color:#fff;background:rgba(44,26,16,0.75);padding:4px 10px;border-radius:12px;z-index:5;pointer-events:none}
+.inline-photo .photo-caption{font-family:var(--sans);font-size:0.75rem;color:var(--ink-soft);margin-top:0.5rem;text-align:center;font-style:italic}
+[data-theme="dark"] .inline-photo .photo-caption{color:rgba(253,248,240,0.45)}
+.inline-photo-row{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:2.5rem 0}
+.inline-photo-row .inline-photo{margin:0}
+
+.photo-strip{position:relative;height:350px;margin:2rem 0;overflow:hidden;border-radius:16px;cursor:pointer}
+.photo-strip img{width:100%;height:100%;object-fit:cover;border-radius:16px;transition:transform 0.5s var(--ease)}
+.photo-strip:hover img{transform:scale(1.05)}
+.photo-strip .photo-strip-label{position:absolute;bottom:16px;left:16px;font-family:var(--sans);font-size:0.7rem;color:#fff;background:rgba(44,26,16,0.7);padding:4px 12px;border-radius:20px;z-index:2}
+
+/* Lightbox */
+#lightbox{position:fixed;inset:0;background:rgba(43,26,16,0.94);z-index:var(--z-lightbox);display:none;align-items:center;justify-content:center;cursor:pointer}
+#lightbox.active{display:flex}
+#lightbox img{max-width:90vw;max-height:85vh;border-radius:16px;box-shadow:0 0 80px rgba(0,0,0,0.4);animation:zoomIn 0.3s var(--ease)}
+#lightbox .close-hint{position:absolute;top:20px;right:24px;font-family:var(--sans);font-size:0.8rem;color:rgba(255,255,255,0.5)}@keyframes zoomIn{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
+
+/* ================================================================
+   BEFORE/AFTER SLIDER — income comparison
+   ================================================================ */
+.compare-slider{position:relative;width:100%;max-width:600px;height:360px;margin:2rem auto;overflow:hidden;border-radius:16px;cursor:ew-resize;box-shadow:0 4px 24px rgba(44,36,22,0.12)}
+.compare-slider .compare-before,.compare-slider .compare-after{position:absolute;inset:0;background-size:cover;background-position:center}
+.compare-slider .compare-after{clip-path:inset(0 50% 0 0)}
+.compare-slider .compare-handle{position:absolute;top:0;bottom:0;width:3px;background:#fff;left:50%;transform:translateX(-50%);box-shadow:0 0 12px rgba(0,0,0,0.3);pointer-events:none}
+.compare-slider .compare-handle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;background:var(--vermillion);border-radius:50%;border:3px solid #fff;box-shadow:0 2px 16px rgba(0,0,0,0.3)}
+.compare-slider .compare-label{position:absolute;bottom:12px;font-family:var(--sans);font-size:0.75rem;color:#fff;background:rgba(0,0,0,0.6);padding:3px 10px;border-radius:10px}
+.compare-slider .compare-label.left{left:12px}.compare-slider .compare-label.right{right:12px}
+.compare-slider .compare-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--sans);font-size:0.8rem;color:#fff;background:rgba(44,26,16,0.8);padding:8px 16px;border-radius:20px;pointer-events:none;animation:pulseHint 2s ease-in-out infinite}
+@keyframes pulseHint{0%,100%{opacity:0.8}50%{opacity:0.3}}
+
+/* ================================================================
+   EXPANDABLE KPI CARDS
+   ================================================================ */
+.kpi-row{display:flex;flex-direction:column;gap:1rem;margin:2rem 0;max-width:520px}
+.kpi-card{background:#fff;border-radius:12px;padding:1.5rem 1.8rem;box-shadow:0 1px 12px rgba(44,36,22,0.06);border-left:4px solid var(--vermillion);cursor:pointer;transition:transform var(--mid) var(--ease),box-shadow var(--mid) var(--ease),background var(--mid)}
+.kpi-card:hover{transform:translateX(6px);box-shadow:0 4px 24px rgba(44,36,22,0.12)}
+.kpi-card.expanded{background:#FFFBF5;box-shadow:0 8px 40px rgba(44,36,22,0.15);transform:translateX(6px)}
+.kpi-card .card-header{display:flex;align-items:baseline;gap:0.8rem;flex-wrap:wrap}
+.kpi-card .num{font-family:var(--sans);font-size:2.4rem;font-weight:800;color:var(--vermillion);line-height:1}
+.kpi-card .unit{font-family:var(--serif);font-size:1rem;color:var(--ink-soft)}
+.kpi-card .label{font-family:var(--sans);font-size:0.82rem;color:var(--ink-soft);width:100%;margin-top:2px}
+.kpi-card .card-detail{display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(196,73,58,0.15);font-family:var(--serif);font-size:0.9rem;line-height:1.7;color:var(--ink-soft)}
+.kpi-card.expanded .card-detail{display:block}
+.kpi-card .card-toggle{font-family:var(--sans);font-size:0.7rem;color:var(--vermillion);margin-top:0.5rem;display:inline-block}
+
+/* ================================================================
+   GUIDE — 博物馆式章节导览
+   ================================================================ */
+.guide-heading{
+  font-family:var(--serif);font-size:1.6rem;font-weight:700;
+  text-align:center;margin-bottom:2rem;letter-spacing:0.1em;
+}
+.guide-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem;width:100%}
+.guide-card{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:1.5rem 1rem;border-radius:14px;
+  background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);
+  transition:transform 0.3s var(--ease),background 0.3s;
+  text-decoration:none;color:var(--paper);
+}
+.guide-card:hover{transform:translateY(-6px);background:rgba(255,255,255,0.12)}
+.guide-thumb{width:100%;aspect-ratio:16/10;border-radius:8px;overflow:hidden;margin-bottom:0.8rem}
+.guide-thumb img{width:100%;height:100%;object-fit:cover}
+.guide-num{
+  font-family:var(--serif);font-size:1.6rem;font-weight:900;
+  color:var(--vermillion);opacity:0.5;line-height:1;
+}
+.guide-card h4{
+  font-family:var(--serif);font-size:0.95rem;font-weight:700;
+  margin:0.3rem 0 0.3rem;color:var(--paper);
+}
+.guide-card p{
+  font-family:var(--sans);font-size:0.7rem;color:rgba(253,248,240,0.5);
+  line-height:1.4;
+}
+@media(max-width:1024px){.guide-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.guide-grid{grid-template-columns:1fr}.guide-card{flex-direction:row;text-align:left;gap:0.8rem;padding:0.8rem}.guide-thumb{width:60px;height:60px;flex-shrink:0;aspect-ratio:auto;margin-bottom:0}.guide-card h4{margin:0}}
+.section-hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;z-index:0}
+.hero-bg img{width:100%;height:100%;object-fit:cover}
+.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(43,26,16,0.65) 0%,rgba(43,26,16,0.82) 100%)}
+.hero-content{position:relative;z-index:1;max-width:800px;color:var(--paper)}
+/* ================================================================
+   HERO TITLE — 夺目大标题
+   ================================================================ */
+.hero-title{
+  position:relative;margin-bottom:2.5rem;z-index:2;
+}
+.hero-line{
+  display:block;color:var(--paper);
+  text-shadow:0 2px 12px rgba(0,0,0,0.5),0 0 60px rgba(0,0,0,0.2);
+  opacity:0;transform:translateY(40px);
+  animation:heroIn 1s var(--ease) forwards;
+}
+.hero-line--top{
+  font-family:var(--serif);
+  font-size:clamp(5rem,11vw,11rem);
+  font-weight:900;
+  line-height:1.15;
+  letter-spacing:0.08em;
+  animation-delay:0.1s;
+  color:var(--paper);
+}
+.hero-line--bot{
+  font-family:var(--serif);
+  font-size:clamp(4rem,9vw,9rem);
+  font-weight:900;
+  line-height:1.15;
+  letter-spacing:0.06em;
+  animation-delay:0.35s;
+  margin-top:0.1em;
+  color:var(--paper);
+}
+/* "线"字突出：末笔连接绣线 */
+
+/* 绣线延申 SVG — 定位在"线"字右侧下方 */
+.hero-thread-extend{
+  position:absolute;width:100px;height:280px;
+  top:55%;right:8%;
+  pointer-events:none;z-index:3;
+  opacity:0;
+  animation:heroIn 1.2s var(--ease) 0.7s forwards;
+}
+.hero-thread-extend .he-thread-main{
+  stroke-dasharray:360;stroke-dashoffset:360;
+  animation:drawThread 2.5s var(--ease) 1s forwards;
+}
+@keyframes drawThread{to{stroke-dashoffset:0}}
+@keyframes heroIn{to{opacity:1;transform:translateY(0)}}
+@media(max-width:768px){
+  .hero-thread-extend{width:60px;height:180px;right:4%;top:50%}
+}
+@media(max-width:480px){
+  .hero-line--top{font-size:2.8rem}
+  .hero-line--bot{font-size:2.4rem}
+  .hero-thread-extend{width:50px;height:150px}
+}
+
+.hero-subtitle{font-family:var(--serif);font-size:1.3rem;line-height:2;color:var(--gold-light);opacity:0;animation:rise 1s var(--ease) 1s forwards;margin-bottom:2.5rem}
+.hero-byline{font-family:var(--sans);font-size:0.8rem;color:rgba(253,248,240,0.5);opacity:0;animation:fadeIn 0.8s ease 1.5s forwards}
+.scroll-hint{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:1;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;animation:fadeIn 0.8s ease 2s forwards;transition:opacity 0.4s}
+.scroll-hint.hidden{opacity:0;pointer-events:none}
+.scroll-hint-line{width:1px;height:36px;background:linear-gradient(to bottom,var(--vermillion),transparent);animation:pulse 2s ease-in-out infinite}
+.scroll-hint-text{font-family:var(--sans);font-size:0.7rem;letter-spacing:0.2em;color:rgba(253,248,240,0.4)}
+
+/* ================================================================
+   SECTION DIVIDERS
+   ================================================================ */
+.section-divider{height:60px;display:flex;align-items:center;justify-content:center}
+.section-divider svg{width:160px;height:30px}
+.divider-line{fill:none;stroke:var(--vermillion);stroke-width:1.2;stroke-dasharray:4 10;opacity:0.4}
+.divider-dot{fill:var(--vermillion);opacity:0.5}
+
+/* ================================================================
+   STAT BLOCK / PULL QUOTE / DATA SOURCE
+   ================================================================ */
+.stat-block{margin:2.5rem 0;padding:1.8rem 2rem;border-left:4px solid var(--vermillion);background:rgba(196,73,58,0.04);border-radius:0 12px 12px 0}
+.stat-block .big-num{font-family:var(--sans);font-size:3rem;font-weight:800;color:var(--vermillion);line-height:1}
+.stat-block .unit{font-family:var(--serif);font-size:1.3rem;color:var(--ink);margin-left:3px}
+.stat-block .desc{display:block;font-family:var(--sans);font-size:0.85rem;color:var(--ink-soft);margin-top:6px;line-height:1.5}
+
+.pull-quote{margin:3rem auto;padding:2.5rem;max-width:550px;text-align:center;border-top:1px solid rgba(232,213,163,0.25);border-bottom:1px solid rgba(232,213,163,0.25)}
+.pull-quote p{font-family:var(--serif);font-size:1.6rem;font-style:italic;line-height:1.5;color:var(--gold-light)}
+.pull-quote cite{display:block;margin-top:1rem;font-family:var(--sans);font-size:0.8rem;font-style:normal;color:rgba(253,248,240,0.45)}
+[data-theme="light"] .pull-quote p{color:var(--ink)}[data-theme="light"] .pull-quote cite{color:var(--ink-soft)}
+
+.data-source{display:inline-block;font-family:var(--sans);font-size:0.7rem;color:var(--ink-soft);margin-top:0.3rem}
+[data-theme="dark"] .data-source{color:rgba(253,248,240,0.35)}
+
+/* ================================================================
+   CHART & EMBED
+   ================================================================ */
+.embed-zone{width:100%;min-height:380px;margin:1.5rem 0;position:relative;border:none;border-radius:0;display:flex;align-items:center;justify-content:center;background:transparent;overflow:hidden;transition:opacity var(--fast)}
+[data-theme="dark"] .embed-zone{background:transparent}
+.embed-zone.embed-zone--loaded{background:transparent}
+.embed-zone iframe{width:100%;height:100%;min-height:380px;border:none;background:transparent}
+.embed-zone-placeholder{text-align:center;padding:2rem;color:var(--ink-soft)}
+[data-theme="dark"] .embed-zone-placeholder{color:rgba(253,248,240,0.4)}
+.embed-zone-placeholder .icon{font-size:2.5rem;margin-bottom:0.5rem;opacity:0.5}
+.embed-zone iframe{width:100%;height:100%;min-height:380px;border:none}
+
+/* ================================================================
+   FOOTER
+   ================================================================ */
+.ref-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:2rem;margin-top:1.5rem}.ref-group h4{font-family:var(--calligraphy);font-size:1.1rem;color:var(--vermillion);margin-bottom:0.6rem;padding-bottom:0.3rem;border-bottom:1px solid rgba(212,69,59,0.15)}.ref-group a{display:block;font-family:var(--sans);font-size:0.78rem;color:var(--ink-soft);line-height:1.7;padding:2px 0;transition:color var(--fast);text-decoration:none}.ref-group a:hover{color:var(--vermillion);text-decoration:underline}.ref-group a::before{content:"▸ ";font-size:0.6rem;color:var(--gold)}@media(max-width:768px){.ref-grid{grid-template-columns:1fr}}
+.music-btn{position:fixed;bottom:20px;right:20px;z-index:500;padding:8px 16px;border-radius:24px;background:rgba(26,37,53,0.85);border:1.5px solid rgba(200,150,78,0.5);color:var(--gold);cursor:pointer;font-size:0.8rem;font-family:var(--sans);display:flex;align-items:center;justify-content:center;transition:all 0.3s;backdrop-filter:blur(4px)}.music-btn:hover{background:rgba(26,37,53,0.95);border-color:var(--gold)}.music-btn.playing{border-color:var(--vermillion);color:var(--vermillion)}.music-btn.playing::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--vermillion);animation:musicPulse 2s ease-in-out infinite}@keyframes musicPulse{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:0;transform:scale(1.3)}}.page-footer{margin-top:4rem;padding-top:2rem;border-top:1px solid rgba(255,255,255,0.08);font-family:var(--sans);font-size:0.7rem;color:rgba(253,248,240,0.35);line-height:1.8}
+
+/* ================================================================
+   ANIMATIONS
+   ================================================================ */
+@keyframes rise{to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{to{opacity:1}}
+@keyframes pulse{0%,100%{transform:scaleY(1);opacity:1}50%{transform:scaleY(0.3);opacity:0.2}}
+.reveal{opacity:1;transform:none}
+.reveal.on{opacity:1;transform:none}
+.stagger>*{opacity:1;transform:none}
+.stagger.on>*{opacity:1;transform:none}
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media(max-width:1024px){section{padding-left:110px}}
+@media(max-width:768px){
+  section{padding:3rem 1.5rem}#thread-spine{display:none}#section-nav{right:6px}#section-nav a{width:5px;height:5px}
+  .section-num{font-size:4.5rem}.hero-line--top{font-size:3.5rem}.hero-line--bot{font-size:3rem}.inline-photo-row{grid-template-columns:1fr}.photo-strip{height:220px}
+  #thread-trail{display:none}.compare-slider{height:240px}
+  .hero-content svg{width:280px;height:70px;top:-40px}
+  [style*="margin-left:-16vw"],[style*="margin-left:-25vw"]{margin-left:0!important;width:100%!important;flex-direction:column!important;max-width:100%!important}
+  [style*="padding-left:15rem"]{padding-left:1rem!important}
+  #gallery [style*="grid-template-columns:repeat(5,1fr)"]{grid-template-columns:repeat(2,1fr)!important}
+  .emb-card .emb-name{font-size:0.9rem}.emb-card .emb-place{font-size:0.55rem}
+  [id^="chart-"]{transform:scale(0.72);transform-origin:top left;width:138%!important;margin-bottom:-60px!important}
+  iframe{height:380px!important}
+}
+@media(max-width:480px){
+  section{padding:2.5rem 1rem}.section-num{font-size:3.5rem}.hero-line--top{font-size:2.8rem}.hero-line--bot{font-size:2.4rem}
+  .hero-subtitle{font-size:1rem}.narrative{font-size:1rem}.stat-block .big-num{font-size:2.2rem}
+  .pull-quote p{font-size:1.2rem}.kpi-card .num{font-size:2rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     MOUSE THREAD TRAIL CANVAS
+     ============================================================ -->
+<canvas id="thread-trail"></canvas>
+
+<!-- ============================================================
+     LIGHTBOX
+     ============================================================ -->
+<div id="lightbox"><span class="close-hint">点击任意处关闭 ✕</span><img id="lightbox-img" src="" alt=""></div>
+
+<!-- ============================================================
+     THREAD SPINE
+     ============================================================ -->
+<div id="thread-spine" aria-hidden="true">
+  <svg viewBox="0 0 120 1200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="fuzz" x="-30%" y="-30%" width="160%" height="160%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.06 0.015" numOctaves="4" seed="2" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="2.5" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="blur"><feGaussianBlur in="SourceGraphic" stdDeviation="2.5"/></filter>
+    </defs>
+    <path id="thread-main" class="thread-core" d="M60,-20 C40,80 80,140 55,200 C30,260 85,320 60,380 C35,440 80,500 58,560 C36,620 82,680 60,740 C38,800 85,860 58,920 C31,980 80,1040 60,1100 C40,1160 75,1220 60,1280" stroke-dasharray="1400" stroke-dashoffset="1400"/>
+    <path id="thread-gold" class="thread-gold" d="M60,-20 C42,80 82,140 57,200 C32,260 87,320 62,380 C37,440 82,500 60,560 C38,620 84,680 62,740 C40,800 87,860 60,920 C33,980 82,1040 62,1100 C42,1160 77,1220 62,1280" stroke-dasharray="1400" stroke-dashoffset="1400"/>
+    <path id="thread-shadow-line" d="M60,-20 C40,80 80,140 55,200 C30,260 85,320 60,380 C35,440 80,500 58,560 C36,620 82,680 60,740 C38,800 85,860 58,920 C31,980 80,1040 60,1100 C40,1160 75,1220 60,1280" class="thread-shadow-line" stroke-dasharray="1400" stroke-dashoffset="1400"/>
+    <path d="M60,-20 C40,80 80,140 55,200 C30,260 85,320 60,380 C35,440 80,500 58,560 C36,620 82,680 60,740 C38,800 85,860 58,920 C31,980 80,1040 60,1100 C40,1160 75,1220 60,1280" fill="none" stroke="var(--gold)" stroke-width="1" stroke-dasharray="1 32" opacity="0.45"/>
+    <circle class="thread-knot" id="k0" cx="60" cy="20" r="6"/><circle class="thread-knot" id="k1" cx="57" cy="220" r="6"/>
+    <circle class="thread-knot" id="k2" cx="61" cy="460" r="6"/><circle class="thread-knot" id="k3" cx="58" cy="700" r="6"/>
+    <circle class="thread-knot" id="k4" cx="60" cy="1020" r="7" fill="var(--gold)"/>
+    <g id="needle-group" transform="translate(0,0)">
+      <path d="M60,0 C55,20 65,40 60,55" class="needle-thread-loop"/>
+      <line x1="60" y1="-18" x2="51" y2="8" stroke="var(--gold)" stroke-width="2.8" stroke-linecap="round"/>
+      <line x1="60" y1="-18" x2="69" y2="8" stroke="var(--gold)" stroke-width="2.8" stroke-linecap="round"/>
+      <ellipse cx="60" cy="-22" rx="3" ry="6" fill="none" stroke="var(--gold)" stroke-width="1.5"/>
+    </g>
+  </svg>
+</div>
+
+<!-- ============================================================
+     NAV DOTS
+     ============================================================ -->
+<nav id="section-nav" aria-label="章节导航">
+  <ul>
+    <li><a href="#intro" data-section="0" data-label="导语" class="active"></a></li>
+    <li><a href="#part1" data-section="1" data-label="她们是谁"></a></li>
+    <li><a href="#part2" data-section="2" data-label="网路"></a></li>
+    <li><a href="#part3" data-section="3" data-label="改变"></a></li>
+    <li><a href="#conclusion" data-section="4" data-label="答案"></a></li>
+  </ul>
+</nav>
+
+<main>
+
+<!-- ============================================================
+     GUIDE — 章节导览（页面顶部）
+     ============================================================ -->
+<section id="guide" data-theme="dark" style="min-height:auto;padding:2.5rem 2rem;">
+  <div class="section-inner" style="max-width:var(--max-width-wide);">
+    <h3 class="guide-heading reveal" style="color:var(--gold-light);">章节导览</h3>
+    <div class="guide-grid reveal">
+      <a href="#part1" class="guide-card guide-card--dark">
+        <div class="guide-thumb"><img src="assets/images/img-8ae3cd9d.jpg" alt="她们是谁"></div>
+        <span class="guide-num">01</span>
+        <h4>她们是谁？</h4>
+        <p>全国非遗工坊中的女性群像 — 地图、占比、类型分布</p>
+      </a>
+      <a href="#part2" class="guide-card guide-card--dark">
+        <div class="guide-thumb"><img src="assets/images/img-17b2ba45.jpg" alt="网路"></div>
+        <span class="guide-num">02</span>
+        <h4>绣线连接的网路</h4>
+        <p>从绣娘到消费者的完整产业链 — 桑基图、收益分配</p>
+      </a>
+      <a href="#part3" class="guide-card guide-card--dark">
+        <div class="guide-thumb"><img src="assets/images/img-5db77adc.jpg" alt="改变"></div>
+        <span class="guide-num">03</span>
+        <h4>绣线改变了什么</h4>
+        <p>收入对比、工坊增长、培训数据 — 一根绣线的力量</p>
+      </a>
+      <a href="#conclusion" class="guide-card guide-card--dark">
+        <div class="guide-thumb"><img src="assets/images/img-dcf1e358.jpg" alt="答案"></div>
+        <span class="guide-num">∞</span>
+        <h4>一根绣线的答案</h4>
+        <p>放射关系网络 — 绣线连接了女性就业、家庭增收、非遗传承……</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<section id="intro" class="section-hero">
+  <div class="hero-bg"><img src="assets/images/img-73ff24bc.jpg" alt="苗绣"></div>
+  <div class="hero-content">
+    <!-- 同心圆纹理底图 -->
+    <img src="assets/images/img-53df8b90.png" alt="" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);max-width:650px;max-height:600px;opacity:0.5;pointer-events:none;z-index:0;">
+    <!-- 大标题 -->
+    <h1 class="hero-title">
+      <span class="hero-line hero-line--top">一根绣线</span>
+      <span class="hero-line hero-line--bot">能有多长？</span>
+    </h1>
+    <p class="hero-subtitle">它穿过苗岭的晨雾，连起千万乡村女性的命运，<br>在布帛之上，绣出一个时代的答案。</p>
+    <div class="hero-byline">第十届中国数据新闻大赛参赛作品</div>
+    <div class="scroll-hint" id="scroll-hint"><span class="scroll-hint-line"></span><span class="scroll-hint-text">向下滚动</span></div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PART 1 — 她们是谁？
+     ============================================================ -->
+<section id="part1" data-theme="light">
+  <div class="section-bg parallax" data-parallax="0.3"><img src="assets/images/img-bce038cd.jpg" alt=""></div>
+  <!-- 漂浮针脚装饰 -->
+  <div class="floating-stitch" style="top:10%;right:8%;width:120px;height:80px;">
+    <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10,40 C30,20 50,60 70,35 C90,10 110,50 115,30" fill="none" stroke="#D4453B" stroke-width="1.5" stroke-dasharray="3 8" stroke-linecap="round"/>
+      <circle cx="10" cy="40" r="2" fill="#C8964E"/>
+      <circle cx="115" cy="30" r="2" fill="#C8964E"/>
+    </svg>
+  </div>
+  <div class="section-inner">
+    <div class="section-num reveal">01</div>
+    <h2 class="section-heading reveal">她们是谁？</h2>
+    <p class="narrative reveal">
+      清晨的山雾还未散去，工坊里已亮起盏盏灯光。杨文丽坐在绣架前轻轻捻起一根彩线。针脚穿过布面，一朵花的轮廓慢慢浮现。这样的动作，她已重复多年。儿时跟着长辈学绣花，时光流转，如今的她带着村里的大家一起制作苗绣工艺品。
+    </p>
+
+    <div class="inline-photo-row reveal">
+      <div class="inline-photo" data-lightbox><img src="assets/images/img-8ae3cd9d.jpg" alt="女性1"></div>
+      <div class="inline-photo" data-lightbox><img src="assets/images/img-7993ec73.jpg" alt="女性2"></div>
+    </div>
+
+    <p class="narrative reveal">
+      在全国各地的非遗工坊里，有无数女性正重复着相似的轨迹。她们之中，有曾经外出务工又因为照顾父母回到家乡的大学生；有照顾孩子的全职家庭主妇；也有从小学习民族手工艺的非遗传承者。这些女性无需离开村寨，利用农闲时间或照顾家庭的间隙就可参与生产。
+    </p>
+    <!-- 地图左 + 文字右 -->
+    <div class="reveal" style="display:flex;gap:1rem;margin:1.5rem 0;margin-left:-16vw;width:calc(100% + 16vw);max-width:950px;align-items:center;">
+      <div style="flex:2.5;max-width:1000px;">
+        <iframe src="charts/map-workshop-distribution.html?v=15" style="width:100%;height:900px;border:none;display:block;margin:1.5rem 0;"></iframe>
+      </div>
+      <div style="flex:1;min-width:180px;display:flex;align-items:center;padding-left:15rem;">
+        <p style="font-family:var(--serif);font-size:1.1rem;line-height:2;margin:0;background:rgba(255,255,255,0.6);padding:1rem;border-radius:8px;">
+          截至目前，<strong>全国已建设 1.29 万余家非遗工坊</strong>，覆盖 2,138 个县（市、区），包括 693 个脱贫县和 135 个国家乡村振兴重点帮扶县。<span class="data-source">来源：人民日报、经济参考网</span>
+        </p>
+      </div>
+    </div>
+
+    <p class="narrative reveal">
+      从贵州 522 家到浙江 1,556 家，从四川 1,287 家到河北 1,245 家。贵州"锦绣计划"累计带动近 <strong>50 万妇女</strong>实现就业。重庆非遗工坊女性负责人占比 54%，广州非遗从业者中女性比例高达 <strong>78.72%</strong>。<span class="data-source">来源：央广网贵州频道、广东省妇女联合会</span>
+    </p>
+
+    <div id="chart-gender" style="width:100%;height:440px;margin:1.5rem 0;"></div>
+<script>
+
+(function() {
+  const chart = echarts.init(document.getElementById("chart-gender"));
+
+  const categories = ['国家级非遗\n传承人', '非遗研修\n培训学员', '广州非遗\n从业者', '重庆非遗工坊\n女性负责人', '云南省级\n传承人', '全国手工刺绣\n从业者'];
+  const values = [25, 57, 78.72, 54, 26.7, 92];
+
+  const option = {
+    backgroundColor: '#F9F5EC',
+    title: {
+      text: '非遗领域女性参与占比',
+      subtext: '女性正在成为非遗传承与产业发展的核心力量',
+      left: 'center', top: 20,
+      textStyle: { fontFamily: '"Noto Serif SC","STKaiti","楷体",serif', fontSize: 22, color: '#221C15', fontWeight: 700 },
+      subtextStyle: { fontFamily: '"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif', fontSize: 12, color: '#5C5347' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(44,26,16,0.92)',
+      borderColor: '#D4453B',
+      textStyle: { color: '#F9F5EC', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 12 },
+      formatter: '{b}: <b style="color:#E8CC9A;font-size:15px;">{c}%</b>'
+    },
+    grid: { left: 140, right: 60, top: 100, bottom:80 },
+    xAxis: {
+      type: 'value', max: 100,
+      axisLabel:{margin:24, formatter: '{value}%', color: '#5C5347', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 11 },
+      axisLine: { lineStyle: { color: '#C8964E' } },
+      splitLine: { lineStyle: { color: '#F5EDDF' } },
+    },
+    yAxis: {
+      type: 'category',
+      data: categories,
+      axisLabel:{margin:24, color: '#221C15', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 12, fontWeight: 500 },
+      axisLine: { lineStyle: { color: '#C8964E' } },
+      axisTick: { show: false },
+    },
+    series: [{
+      type: 'bar',
+      data: values.map((v, i) => ({
+        value: v,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: '#D4453B' },
+            { offset: 1, color: i === 5 ? '#A8322B' : '#D47868' }
+          ]),
+          borderRadius: [0, 4, 4, 0],
+        }
+      })),
+      barWidth: 28,
+      label: {
+        show: true,
+        position: 'right',
+        formatter: '{c}%',
+        color: '#221C15',
+        fontFamily: '"Noto Sans SC",sans-serif',
+        fontSize: 12,
+        fontWeight: 700,
+      },
+      emphasis: {
+        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(196,73,58,0.4)' },
+        label: { fontSize: 15, color: '#D4453B' }
+      },
+      animationDuration: 1500,
+      animationEasing: 'elasticOut',
+    }]
+  };
+
+  chart.setOption(option);
+  window.addEventListener('resize', () => chart.resize());
+})();
+
+</script>
+
+    <div class="photo-strip reveal" data-lightbox>
+      <img src="assets/images/img-cdc03f04.jpg" alt="苗绣制作">
+      <span class="photo-strip-label">苗绣制作</span>
+    </div>
+
+    <div class="inline-photo-row reveal">
+      <div class="inline-photo" data-lightbox><img src="assets/images/img-21566720.jpg" alt="刺绣展示" style="aspect-ratio:1/1;object-fit:cover;"><p class="photo-caption">非遗刺绣作品展示</p></div>
+      <div class="inline-photo" data-lightbox><img src="assets/images/img-f36f2bb1.jpg" alt="刺绣细节" style="aspect-ratio:1/1;object-fit:cover;"><p class="photo-caption">传统刺绣工艺细节</p></div>
+    </div>
+
+    <p class="narrative reveal">
+      全国手工刺绣从业者 21.4 万人，少数民族产区留守妇女比例高达 <strong>92%</strong>，平均年龄 41.3 岁。非遗十大类型——传统技艺 287 项、传统音乐 189 项、民俗 183 项——每一项背后都有女性用双手守护着文化根脉。<span class="data-source">来源：2026 手工刺绣行业报告、国务院政策例行吹风会</span>
+    </p>
+
+    <div id="worker-profile-chart" style="width:100%;height:380px;margin:-4rem 0 3rem 0;"></div>
+<script>
+(function(){
+  var c=echarts.init(document.getElementById('worker-profile-chart'));
+  c.setOption({
+    backgroundColor:'transparent',
+    title:{text:'全国手工刺绣从业者画像',subtext:'数据来源：2026手工刺绣行业报告',left:'96%',top:'middle',
+      textStyle:{fontFamily:'"Noto Serif SC","STKaiti","楷体",serif',fontSize:28,color:'#221C15',fontWeight:900},
+      text:'全\n国\n手\n工\n刺\n绣\n从\n业\n者\n画\n像',
+      subtextStyle:{fontFamily:'"Noto Sans SC",sans-serif',fontSize:13,color:'#5C5347'}},
+    series:[
+      {type:'gauge',center:['25%','58%'],radius:'75%',startAngle:210,endAngle:-30,min:0,max:25,splitNumber:10,
+        axisLine:{show:true,lineStyle:{width:28,color:[[0.856,'#D4453B'],[1,'#EFE8D8']]}},
+        axisTick:{show:false},axisLabel:{show:false},splitLine:{show:false},
+        pointer:{show:true,length:'70%',width:6,itemStyle:{color:'#221C15'}},
+        detail:{formatter:'21.4万',fontFamily:'"Noto Sans SC",sans-serif',fontSize:22,fontWeight:800,color:'#221C15',offsetCenter:[0,'80%']},
+        title:{show:true,offsetCenter:[0,'95%'],fontFamily:'"Noto Sans SC",sans-serif',fontSize:12,color:'#5C5347'},
+        data:[{value:21.4,name:'从业人数'}]},
+      {type:'gauge',center:['50%','58%'],radius:'75%',startAngle:210,endAngle:-30,min:0,max:100,splitNumber:10,
+        axisLine:{show:true,lineStyle:{width:28,color:[[0.92,'#C8964E'],[1,'#EFE8D8']]}},
+        axisTick:{show:false},axisLabel:{show:false},splitLine:{show:false},
+        pointer:{show:true,length:'70%',width:6,itemStyle:{color:'#221C15'}},
+        detail:{formatter:'92%',fontFamily:'"Noto Sans SC",sans-serif',fontSize:22,fontWeight:800,color:'#221C15',offsetCenter:[0,'80%']},
+        title:{show:true,offsetCenter:[0,'95%'],fontFamily:'"Noto Sans SC",sans-serif',fontSize:13,color:'#5C5347'},
+        data:[{value:92,name:'留守妇女占比'}]},
+      {type:'gauge',center:['75%','58%'],radius:'75%',startAngle:210,endAngle:-30,min:0,max:60,splitNumber:10,
+        axisLine:{show:true,lineStyle:{width:28,color:[[0.688,'#5C8B7A'],[1,'#EFE8D8']]}},
+        axisTick:{show:false},axisLabel:{show:false},splitLine:{show:false},
+        pointer:{show:true,length:'70%',width:6,itemStyle:{color:'#221C15'}},
+        detail:{formatter:'41.3岁',fontFamily:'"Noto Sans SC",sans-serif',fontSize:22,fontWeight:800,color:'#221C15',offsetCenter:[0,'80%']},
+        title:{show:true,offsetCenter:[0,'95%'],fontFamily:'"Noto Sans SC",sans-serif',fontSize:13,color:'#5C5347'},
+        data:[{value:41.3,name:'平均年龄'}]},
+    ]
+  });
+  window.addEventListener('resize',function(){c.resize()});
+})();
+</script>
+
+    <div id="project-types-chart" style="width:100%;height:720px;margin:1.5rem 0;"></div>
+<script>
+(function(){
+  var data=[
+    {name:'传统技艺',value:287},{name:'传统音乐',value:189},
+    {name:'民俗',value:183},{name:'传统戏剧',value:171},
+    {name:'民间文学',value:167},{name:'曲艺',value:145},
+    {name:'舞蹈',value:144},{name:'传统美术',value:139},
+    {name:'体育游艺杂技',value:109},{name:'传统医药',value:23},
+  ];
+  var colors=['#D4453B','#D46050','#D47868','#DD9080','#E0A898','#C8964E','#D0A860','#C8B070','#B09878','#5C8B7A'];
+  var c=echarts.init(document.getElementById('project-types-chart'));
+  c.setOption({
+    backgroundColor:'transparent',
+    title:{text:'国家级非遗项目十大类型分布',subtext:'共 1,557 项',left:'center',top:8,
+      textStyle:{fontFamily:'"Noto Serif SC","STKaiti","楷体",serif',fontSize:24,color:'#221C15',fontWeight:700},
+      subtextStyle:{fontFamily:'"Noto Sans SC",sans-serif',fontSize:13,color:'#5C5347'}},
+    tooltip:{trigger:'item',backgroundColor:'rgba(26,37,53,0.94)',borderColor:'#D4453B',
+      textStyle:{color:'#F9F5EC',fontFamily:'"Noto Sans SC",sans-serif',fontSize:13},
+      formatter:function(p){return '<b>'+p.name+'</b><br/>项目数量：<b style=\"color:#E8CC9A;font-size:18px;\">'+p.value+'</b> 项'}},
+    series:[{type:'pie',radius:['32%','62%'],center:['50%','55%'],avoidLabelOverlap:true,
+      itemStyle:{borderRadius:4,borderColor:'#F9F5EC',borderWidth:3},
+      label:{show:true,position:'outside',fontFamily:'"Noto Sans SC",sans-serif',fontSize:13,color:'#221C15',formatter:'{b}',distanceToLabelLine:8},
+        labelLayout:{hideOverlap:true},
+      labelLine:{show:true,length:50,length2:65,lineStyle:{color:'#C8964E',width:1}},
+      emphasis:{label:{fontSize:16,fontWeight:'bold'},scaleSize:12,shadowBlur:20,shadowColor:'rgba(212,69,59,0.3)'},
+      data:data.map(function(d,i){return{name:d.name,value:d.value,itemStyle:{color:colors[i]}}}),
+      animationType:'scale',animationEasing:'elasticOut',animationDuration:2000}],
+    graphic:[{type:'text',left:'center',top:'52%',
+      style:{text:'非遗项目\n1,557 项',textAlign:'center',font:'bold 26px \"Noto Serif SC\",\"STKaiti\",\"楷体\",serif',fill:'#221C15',lineHeight:34}}]
+  });
+  window.addEventListener('resize',function(){c.resize()});
+})();
+</script>
+  </div>
+</section>
+
+<div class="section-divider" style="background:var(--indigo-deep);">
+  <svg viewBox="0 0 160 30"><line class="divider-line" x1="0" y1="15" x2="160" y2="15" stroke="var(--gold)"/><circle class="divider-dot" cx="80" cy="15" r="3" fill="var(--gold)"/></svg>
+</div>
+
+<!-- ============================================================
+     PART 2 — 一根绣线连接的网路
+     ============================================================ -->
+<section id="part2" data-theme="dark">
+  <div class="section-bg parallax" data-parallax="0.2"><img src="assets/images/img-dcf1e358.jpg" alt=""></div>
+  <div class="section-inner">
+    <div class="section-num reveal">02</div>
+    <h2 class="section-heading reveal">一根绣线连接的网路</h2><p class="narrative reveal" style="color:var(--gold-light);font-size:1rem;margin-bottom:2rem;">这根绣线不仅连着从绣娘到消费者的产业链，更串起了从苗寨到全国各地的刺绣文化版图——每一种绣法，都是绣线上的一枚绳结。</p>
+
+    <p class="narrative reveal">
+      一幅绣品的诞生需要经历工坊里许多人的接力。描绘纹样、穿针引线、调整针法、协调订单、打包运输——通过展销会、直播间或电商平台，绣品从村寨出发，送往不同城市的消费者手中。
+    </p>
+
+    <div class="photo-strip reveal" data-lightbox>
+      <img src="assets/images/img-fb9aa72e.jpg" alt="工坊场景">
+      <span class="photo-strip-label">非遗工坊生产场景</span>
+    </div>
+
+    <!-- 苏绣打籽绣 -->
+    <div class="inline-photo reveal" data-lightbox>
+      <img src="assets/images/img-17b2ba45.jpg" alt="苏绣打籽绣">
+      <p class="photo-caption">苏绣"打籽绣"技艺 — 新手也能学的非遗技艺</p>
+    </div>
+
+    <p class="narrative reveal">
+      全国手工刺绣产业已形成完整链条：<strong>培训机构→纹样设计→绣娘→工坊合作社→物流→直播电商/线下展销→消费者</strong>。直播电商占销售渠道的 42.6%，社交平台 23.8%，传统电商 18.5%。全链条带动超 10 万乡村妇女就近就业。<span class="data-source">来源：贵州苗绣产业白皮书、楚雄文旅局</span>
+    </p>
+
+    <div id="chart-sankey" style="width:100%;height:550px;margin:1.5rem 0;"></div>
+<script>
+
+(function(){
+  var c=echarts.init(document.getElementById("chart-sankey"));
+  var nodes=[
+    {name:'培训机构',itemStyle:{color:'#D4453B'}},
+    {name:'纹样设计',itemStyle:{color:'#D46050'}},
+    {name:'丝线原料',itemStyle:{color:'#D47868'}},
+    {name:'居家绣娘',itemStyle:{color:'#C8964E'}},
+    {name:'村级工坊',itemStyle:{color:'#D0A860'}},
+    {name:'乡镇合作社',itemStyle:{color:'#C8B070'}},
+    {name:'仓储物流',itemStyle:{color:'#5C8B7A'}},
+    {name:'直播电商',itemStyle:{color:'#E8CC9A'}},
+    {name:'综合电商',itemStyle:{color:'#D0B878'}},
+    {name:'线下展销',itemStyle:{color:'#B8A068'}},
+    {name:'消费者',itemStyle:{color:'#E8CC9A'}},
+  ];
+  var links=[
+    {source:'培训机构',target:'居家绣娘',value:42},
+    {source:'纹样设计',target:'村级工坊',value:23},
+    {source:'丝线原料',target:'村级工坊',value:18},
+    {source:'居家绣娘',target:'村级工坊',value:85},
+    {source:'村级工坊',target:'乡镇合作社',value:70},
+    {source:'乡镇合作社',target:'仓储物流',value:65},
+    {source:'仓储物流',target:'直播电商',value:42},
+    {source:'仓储物流',target:'综合电商',value:18},
+    {source:'仓储物流',target:'线下展销',value:9},
+    {source:'直播电商',target:'消费者',value:42},
+    {source:'综合电商',target:'消费者',value:18},
+    {source:'线下展销',target:'消费者',value:9},
+  ];
+  c.setOption({
+    backgroundColor:'#1A2535',
+    title:{text:'一根绣线连接的产业链网路',subtext:'线条粗细代表流通量占比',left:'center',bottom:10,
+      textStyle:{fontFamily:'"Noto Serif SC","STKaiti","楷体",serif',fontSize:26,color:'#F9F5EC',fontWeight:700},
+      subtextStyle:{fontFamily:'"Noto Sans SC",sans-serif',fontSize:12,color:'#C8964E'}},
+    tooltip:{trigger:'item',backgroundColor:'rgba(26,37,53,0.95)',borderColor:'#C8964E',
+      textStyle:{color:'#F9F5EC',fontFamily:'"Noto Sans SC",sans-serif',fontSize:13},
+      formatter:function(p){if(p.dataType==='edge')return p.data.source+' → '+p.data.target+'<br/>占比：<b style="color:#E8CC9A;font-size:16px">'+p.data.value+'%</b>';return '<b>'+p.name+'</b>'}},
+    series:[{type:'sankey',left:'8%',right:'5%',layout:'none',emphasis:{focus:'adjacency'},nodeAlign:'justify',layoutIterations:0,
+      data:nodes,links:links,
+      label:{fontFamily:'"Noto Sans SC",sans-serif',fontSize:13,color:'#F9F5EC',formatter:function(p){return p.name==='消费者'?'消\n费\n者':p.name}},
+      lineStyle:{color:'gradient',curveness:0.5,opacity:0.35},
+      labelLayout:{hideOverlap:true},
+    }]
+  });
+  window.addEventListener('resize',function(){c.resize()});
+})();
+
+</script>
+
+    <div class="inline-photo-row reveal">
+      <div class="inline-photo" data-lightbox><img src="assets/images/img-80abefb2.jpg" alt="绣品展示"></div>
+      <div class="inline-photo" data-lightbox><img src="assets/images/img-29799f1b.jpg" alt="刺绣细节"></div>
+    </div>
+
+    <p class="narrative reveal">
+      以 100 元绣品售价测算——<strong>绣娘计件劳务工资占 45%，为最高比重</strong>。渠道佣金 15%，品牌管理研发 15%，物料物流 12%。专职绣娘年均收入 2.5-5 万元，产业收益核心最终回流到一线刺绣从业者手中。<span class="data-source">来源：贵州苗绣产业白皮书、重庆创投市场产业调研</span>
+    </p>
+
+    <div id="chart-revenue" style="width:100%;height:460px;margin:1.5rem 0;"></div>
+<script>
+
+(function() {
+  const chart = echarts.init(document.getElementById("chart-revenue"));
+
+  const categories = ['绣娘\n计件劳务', '渠道\n佣金', '品牌\n管理研发', '物料\n物流', '场地\n运维', '设计\n品控', '村集体\n留存', '负责人\n分红'];
+  const values = [45, 15, 13, 12, 5, 5, 3, 2];
+  const colors = ['#D4453B', '#D46050', '#D47868', '#5C8B7A', '#C8964E', '#C8964E', '#C8964E', '#8BA0C0'];
+
+  const option = {
+    backgroundColor: '#1A2535',
+    title: {
+      text: '100%绣品收益怎么分？',
+      subtext: '100% = 绣娘45 · 渠道15 · 品牌13 · 物料12 · 场地5 · 设计5 · 村集体3 · 负责人2 · 数据来源：产业调研报告',
+      left: 'center', top: 20,
+      textStyle: { fontFamily: '"Noto Serif SC","STKaiti","楷体",serif', fontSize: 22, color: '#F9F5EC', fontWeight: 700 },
+      subtextStyle: { fontFamily: '"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif', fontSize: 12, color: '#C8964E' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(44,26,16,0.95)',
+      borderColor: '#C8964E',
+      textStyle: { color: '#F9F5EC', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 12 },
+      formatter: '{b}: <b style="color:#E8CC9A;font-size:16px;">{c}%</b>'
+    },
+    grid: { left: 100, right: 50, top: 110, bottom:80 },
+    xAxis: {
+      type: 'category',
+      data: categories,
+      axisLabel:{margin:24, color: '#C8964E', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 12, fontWeight: 600 },
+      axisLine: { lineStyle: { color: '#C8964E' } },
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      name: '元',
+      max: 50,
+      axisLabel:{margin:24, formatter: '{value}%', color: '#C8964E', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 10 },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+    },
+    series: [{
+      type: 'pictorialBar',
+      data: values.map((v, i) => ({
+        value: v,
+        symbol: 'roundRect',
+        symbolSize: [50, 12],
+        symbolPosition: 'end',
+        itemStyle: { color: colors[i], borderRadius: 6 },
+        label: {
+          show: true,
+          position: 'top',
+          formatter: '{c}%',
+          color: '#F9F5EC',
+          fontFamily: '"Noto Sans SC",sans-serif',
+          fontSize: 13,
+          fontWeight: 700,
+        },
+        emphasis: {
+          itemStyle: { shadowBlur: 15, shadowColor: colors[i] },
+          label: { fontSize: 16 },
+        }
+      })),
+      barWidth: 42,
+      animationDuration: 1800,
+      animationEasing: 'elasticOut',
+    },{
+      type: 'bar',
+      barGap: '-100%',
+      data: values.map((v, i) => ({
+        value: v,
+        itemStyle: { color: colors[i], opacity: 0.3, borderRadius: [8, 8, 0, 0] },
+      })),
+      barWidth: 42,
+      animation: false,
+      silent: true,
+    }]
+  };
+
+  chart.setOption(option);
+  window.addEventListener('resize', () => chart.resize());
+})();
+
+</script>
+
+    <blockquote class="pull-quote reveal">
+      <p>"以前绣花是给自己看，现在绣花能挣钱、能养家。"</p>
+      <cite>—— 杨文丽，贵州化屋村苗绣工坊负责人 · 中国非物质文化遗产网</cite>
+    </blockquote>
+  </div>
+</section>
+
+<div class="section-divider" style="background:var(--paper);">
+  <svg viewBox="0 0 160 30"><line class="divider-line" x1="0" y1="15" x2="160" y2="15"/><circle class="divider-dot" cx="80" cy="15" r="3"/></svg>
+</div>
+
+<!-- GALLERY — 中国刺绣地图 -->
+<style>
+.emb-card{position:relative;background:rgba(255,255,255,0.04);border-radius:12px;padding:0.8rem;text-align:center;cursor:pointer;transition:transform 0.3s,background 0.3s;display:flex;flex-direction:column}
+.emb-card:hover{transform:translateY(-4px);background:rgba(255,255,255,0.1);z-index:5}
+.emb-img-box{width:100%;aspect-ratio:1/1;overflow:hidden;border-radius:8px;background:rgba(255,255,255,0.02)}
+.emb-img-box img{width:100%;height:100%;object-fit:cover;transition:transform 0.4s}
+.emb-card:hover .emb-img-box img{transform:scale(1.05)}
+.emb-card .emb-name{font-family:var(--calligraphy);font-size:1.1rem;color:var(--vermillion);margin:0.5rem 0 0.1rem}
+.emb-card .emb-place{font-family:var(--sans);font-size:0.6rem;color:rgba(253,248,240,0.35)}
+.emb-card .emb-tip{position:absolute;inset:0;background:rgba(26,37,53,0.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;opacity:0;transition:opacity 0.3s;pointer-events:none;border-radius:12px;z-index:6}
+.emb-card:hover .emb-tip{opacity:1}
+.emb-tip h4{font-family:var(--calligraphy);font-size:1.2rem;color:var(--gold-light);margin-bottom:0.4rem}
+.emb-tip p{font-family:var(--serif);font-size:0.78rem;line-height:1.6;color:rgba(253,248,240,0.85)}
+@media(max-width:768px){.emb-img-box{aspect-ratio:4/3}}
+</style>
+<section id="gallery" data-theme="dark" style="min-height:auto;padding:3rem 1rem;">
+  <div style="max-width:1000px;margin:0 auto;">
+    <h3 style="font-family:var(--calligraphy);font-size:2.2rem;color:var(--gold-light);margin-bottom:0.3rem;text-align:center;">绣线织就的中国地图</h3>
+    <p style="font-family:var(--sans);font-size:0.75rem;color:rgba(253,248,240,0.35);text-align:center;margin-bottom:1.5rem;">鼠标悬停查看详情 · 大致按地理方位排列</p>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.8rem;">
+<div class="emb-card" style="grid-column:3;grid-row:1;"><div class="emb-img-box"><img src="assets/images/img-51be2a41.jpg"></div><p class="emb-name">京绣</p><p class="emb-place">北京 · 宫廷宫绣</p><div class="emb-tip"><h4>京绣</h4><p>盘金打籽绣为核心，等级森严的龙蟒官补体系。明清专为宫廷服务，又称宫绣，尽显皇家气派。</p></div></div>
+<div class="emb-card" style="grid-column:5;grid-row:1;"><div class="emb-img-box"><img src="assets/images/img-37730534.jpg"></div><p class="emb-name">鲁绣</p><p class="emb-place">山东 · 衣线绣</p><div class="emb-tip"><h4>鲁绣</h4><p>文献记载最早绣种之一。双股捻合丝线，衣线绣为核心技法。风格质朴大气，北方刺绣雄浑代表。</p></div></div>
+<div class="emb-card" style="grid-column:1;grid-row:2;"><div class="emb-img-box"><img src="assets/images/img-a9efdb0f.jpg"></div><p class="emb-name">藏绣</p><p class="emb-place">西藏 · 唐卡刺绣</p><div class="emb-tip"><h4>藏绣</h4><p>受藏传佛教影响深远，常见唐卡题材。盘金唐卡绣，色彩鲜艳对比强烈，大量使用金银线。</p></div></div>
+<div class="emb-card" style="grid-column:2;grid-row:2;"><div class="emb-img-box"><img src="assets/images/img-80481065.jpg"></div><p class="emb-name">羌绣</p><p class="emb-place">四川阿坝 · 羊角花</p><div class="emb-tip"><h4>羌绣</h4><p>羌族最古老民族之一。羊角花为圣花，云云鞋最经典。风格粗犷大胆明亮，以十字绣为主。</p></div></div>
+<div class="emb-card" style="grid-column:4;grid-row:2;"><div class="emb-img-box"><img src="assets/images/img-70862946.jpg"></div><p class="emb-name">汴绣</p><p class="emb-place">开封 · 摹清明上河图</p><div class="emb-tip"><h4>汴绣</h4><p>北宋首座官方刺绣学院文绣院，千年传承。仿古书画名作见长，摹清明上河图为镇派之作。</p></div></div>
+<div class="emb-card" style="grid-column:5;grid-row:2;"><div class="emb-img-box"><img src="assets/images/img-d879b0db.jpg"></div><p class="emb-name">杭绣</p><p class="emb-place">杭州 · 南宋遗风</p><div class="emb-tip"><h4>杭绣</h4><p>南宋建都临安，刺绣业极盛。分宫廷绣和民间绣，宫廷盘金绣富丽堂皇，民间绣素雅自然。</p></div></div>
+<div class="emb-card" style="grid-column:2;grid-row:3;"><div class="emb-img-box"><img src="assets/images/img-0653c7ff.jpg"></div><p class="emb-name">蜀绣</p><p class="emb-place">成都 · 122种针法</p><div class="emb-tip"><h4>蜀绣</h4><p>四大名绣之一，122种针法为最。晕针铺针滚针，题材多取四川风物：熊猫芙蓉鲤鱼。</p></div></div>
+<div class="emb-card" style="grid-column:3;grid-row:3;"><div class="emb-img-box"><img src="assets/images/img-2ab02157.jpg"></div><p class="emb-name">汉绣</p><p class="emb-place">武汉 · 楚韵豪放</p><div class="emb-tip"><h4>汉绣</h4><p>根植楚文化，花无正果热闹为先。针法粗犷豪放以铺压织锁为主，色彩浓烈对比强烈。</p></div></div>
+<div class="emb-card" style="grid-column:4;grid-row:3;"><div class="emb-img-box"><img src="assets/images/img-fe2073fd.jpg"></div><p class="emb-name">顾绣</p><p class="emb-place">上海 · 画绣之宗</p><div class="emb-tip"><h4>顾绣</h4><p>唯一以家族姓氏命名的绣种。以针代笔复刻宋元名画，劈丝极细可达1/36。存世不足200件。</p></div></div>
+<div class="emb-card" style="grid-column:5;grid-row:3;"><div class="emb-img-box"><img src="assets/images/img-675f0ebf.jpg"></div><p class="emb-name">苏绣 ★</p><p class="emb-place">苏州 · 名绣之首</p><div class="emb-tip"><h4>苏绣 ★</h4><p>四大名绣之首。平齐细密匀顺和光，40余种针法。双面绣为绝技，劈丝可达1/48。</p></div></div>
+<div class="emb-card" style="grid-column:1;grid-row:4;"><div class="emb-img-box"><img src="assets/images/img-c3b6d081.jpg"></div><p class="emb-name">彝绣</p><p class="emb-place">云南 · 火纹几何</p><div class="emb-tip"><h4>彝绣</h4><p>几何纹样为主：涡旋纹菱形纹火纹太阳纹。黑底配红黄绿高饱和色，贴花绣平绣为主。</p></div></div>
+<div class="emb-card" style="grid-column:2;grid-row:4;"><div class="emb-img-box"><img src="assets/images/img-7cf76d25.jpg"></div><p class="emb-name">湘绣</p><p class="emb-place">长沙 · 鬅毛针</p><div class="emb-tip"><h4>湘绣</h4><p>四大名绣之一，鬅毛针一绝专绣狮虎。70余种针法，以画为稿以针代笔，呈现水墨韵味。</p></div></div>
+<div class="emb-card" style="grid-column:3;grid-row:4;"><div class="emb-img-box"><img src="assets/images/img-cdc03f04.jpg"></div><p class="emb-name">苗绣</p><p class="emb-place">贵州 · 无字史书</p><div class="emb-tip"><h4>苗绣</h4><p>28种以上针法：打籽绣数纱绣锡绣破线绣双针锁绣。蝴蝶妈妈创世图案，穿在身上的地图。</p></div></div>
+<div class="emb-card" style="grid-column:4;grid-row:4;"><div class="emb-img-box"><img src="assets/images/img-d69c876b.jpg"></div><p class="emb-name">粤绣</p><p class="emb-place">广东 · 金碧辉煌</p><div class="emb-tip"><h4>粤绣</h4><p>四大名绣之一，色彩浓艳富丽。金银线孔雀羽毛珠贝，垫高绣立体凸起，构图饱满繁而不乱。</p></div></div>
+<div class="emb-card" style="grid-column:5;grid-row:4;"><div class="emb-img-box"><img src="assets/images/img-1e2c96b0.jpg"></div><p class="emb-name">瓯绣</p><p class="emb-place">温州 · 画帘之绣</p><div class="emb-tip"><h4>瓯绣</h4><p>始于唐宋，在竹帘画帘上刺绣。构图精巧色彩鲜丽，针法20余种。温州古称东瓯故名瓯绣。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider" style="background:var(--paper);">
+  <svg viewBox="0 0 160 30"><line class="divider-line" x1="0" y1="15" x2="160" y2="15"/><circle class="divider-dot" cx="80" cy="15" r="3"/></svg>
+</div>
+
+     PART 3 — 绣线改变了什么
+     ============================================================ -->
+<section id="part3" data-theme="light">
+  <div class="section-bg parallax" data-parallax="0.25"><img src="assets/images/img-5db77adc.jpg" alt="赤峰巴林右旗"></div>
+  <div class="section-inner">
+    <div class="section-num reveal">03</div>
+    <h2 class="section-heading reveal">绣线改变了什么</h2>
+    <p class="narrative reveal">
+      当我们谈论非遗时，似乎只是关注一项技艺是否被保存或传承下来。但对于乡村女性而言，非遗工坊带来的意义远不止于此。节庆服饰里的纹样、记忆中的针法，从"会做"变成"可就业"，家庭中的手艺变成乡村发展的资源。
+    </p>
+
+    <!-- EXPANDABLE KPI CARDS -->
+    <div class="kpi-row stagger reveal">
+      <div class="kpi-card" data-expand>
+        <div class="card-header">
+          <span class="num counter" data-target="50">0</span><span class="unit">万</span>
+          <span class="label">贵州"锦绣计划"累计带动妇女就业</span>
+        </div>
+        <div class="card-detail">
+          覆盖全省9个市（州），打造23个妇女手工产业示范基地，辐射带动近8,000名妇女居家灵活就业，1,200余人稳岗就业，绣娘人均年增收8,000元以上。台江县6个省级基地带动5,000余名绣娘稳定就业，年产值达1,600万元。<br>
+          <span class="data-source">来源：央广网贵州频道、贵州广播电视台、新华网贵州频道</span>
+        </div>
+        <span class="card-toggle">点击展开详情 ▸</span>
+      </div>
+      <div class="kpi-card" data-expand>
+        <div class="card-header">
+          <span class="num counter" data-target="1500">0</span><span class="unit">万+人次</span>
+          <span class="label">"十四五"时期非遗工坊累计培训</span>
+        </div>
+        <div class="card-detail">
+          149所院校累计举办1,400余期研培班，直接培训非遗传承人5.1万人次。各省区市同步开展研培工作，参与院校超过200所，惠及非遗传承人和从业者超过20万人次。河北省701家工坊线上线下培训近10万人次，浙江省1,556家工坊线上线下培训213万余人次。<br>
+          <span class="data-source">来源：中华人民共和国文化和旅游部、央视新闻</span>
+        </div>
+        <span class="card-toggle">点击展开详情 ▸</span>
+      </div>
+      <div class="kpi-card" data-expand>
+        <div class="card-header">
+          <span class="num counter" data-target="12900">0</span><span class="unit">家</span>
+          <span class="label">全国非遗工坊 — 从2,500家（2022）到1.29万余家（2025）</span>
+        </div>
+        <div class="card-detail">
+          2017-2020年均新增约300家。2022年突破2,500家，2024年达1.1万家，2025年跃升至1.29万余家。覆盖2,138个县级行政区，包括693个脱贫县。全国已有100余所高校设立非遗保护本科专业，200余所高校参与研培计划。<br>
+          <span class="data-source">来源：经济参考网、百度百科"非遗工坊"词条、央视新闻</span>
+        </div>
+        <span class="card-toggle">点击展开详情 ▸</span>
+      </div>
+    </div>
+
+    <!-- BEFORE/AFTER SLIDER -->
+    <p class="narrative reveal" style="text-align:center;font-weight:700;">← 拖动滑块对比绣娘收入变化 →</p>
+    <div class="compare-slider reveal" id="income-slider">
+      <div class="compare-before" style="background:linear-gradient(135deg,var(--indigo),var(--indigo-deep));display:flex;align-items:center;justify-content:center;flex-direction:column;color:#fff;">
+        <div style="font-family:var(--serif);font-size:3rem;font-weight:700;color:#D4956F;">564<span style="font-size:1rem;"> 元/月</span></div>
+        <div style="font-family:var(--sans);font-size:0.8rem;opacity:0.6;margin-top:0.5rem;">云南楚雄彝绣绣娘 · 2014年</div>
+      </div>
+      <div class="compare-after" style="background:linear-gradient(135deg,var(--vermillion),var(--vermillion-deep));display:flex;align-items:center;justify-content:center;flex-direction:column;color:#fff;">
+        <div style="font-family:var(--serif);font-size:3rem;font-weight:700;color:var(--gold-light);">3,140<span style="font-size:1rem;"> 元/月</span></div>
+        <div style="font-family:var(--sans);font-size:0.8rem;opacity:0.6;margin-top:0.5rem;">云南楚雄彝绣绣娘 · 2025年</div>
+      </div>
+      <div class="compare-handle"></div>
+      <span class="compare-label left">之后</span><span class="compare-label right">之前</span>
+      <div class="compare-hint">← 拖动中央圆点 →</div>
+    </div>
+
+    <div class="inline-photo reveal" data-lightbox>
+      <img src="assets/images/img-e01479f1.jpg" alt="非遗传承人" style="max-width:400px;margin:0 auto;">
+      <p class="photo-caption">非遗传承人在工坊中传授技艺</p>
+    </div>
+
+    <p class="narrative reveal">
+      广西靖西绣球制作日收入从 10-20 元提升至 80-150 元，贵州化屋村绣娘月收入可达 2,000 至 8,000 元。非遗工坊从业人员人均年收入已超 <strong>3.8 万元</strong>。非遗带来的改变不仅是收入增加，更是新的人生可能。<span class="data-source">来源：云南日报、中国网三农、中国艺术报</span>
+    </p>
+
+    <div id="chart-income" style="width:100%;height:440px;margin:1.5rem 0;"></div>
+<script>
+
+(function() {
+  const chart = echarts.init(document.getElementById("chart-income"));
+
+  // Income comparison data — before vs after
+  const places = ['云南楚雄\n彝绣绣娘', '广西靖西\n绣球制作', '贵州贵定\n花苗记忆', '贵州化屋\n杨文丽工坊', '河北大名\n工坊', '内蒙古\n工坊'];
+  const beforeValues = [564, 15, 0, 0, 0, 0];
+  const afterValues  = [3140, 115, 2500, 5000, 25000, 3460];
+  const units = ['月收入/元', '日收入/元', '月增收/元', '月收入/元', '年收入/元', '月收入/元'];
+
+  const option = {
+    backgroundColor: '#F9F5EC',
+    title: {
+      text: '非遗工坊为绣娘带来了什么？',
+      subtext: '收入前后对比 · 鼠标悬停查看详情',
+      left: 'center', top: 20,
+      textStyle: { fontFamily: '"Noto Serif SC","STKaiti","楷体",serif', fontSize: 22, color: '#221C15', fontWeight: 700 },
+      subtextStyle: { fontFamily: '"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif', fontSize: 12, color: '#5C5347' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(26,37,53,0.94)',
+      borderColor: '#D4453B',
+      textStyle: { color: '#F9F5EC', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 12 },
+      formatter: function(params) {
+        const place = params[0].name;
+        const unit = units[params[0].dataIndex];
+        let html = '<strong>' + place + '</strong><br/>';
+        params.forEach(p => {
+          html += p.marker + ' ' + p.seriesName + '：<b style="color:#E8CC9A;font-size:14px;">' + p.value.toLocaleString('zh-CN') + '</b> ' + unit + '<br/>';
+        });
+        const growth = params[1].value - params[0].value;
+        const pct = params[0].value > 0 ? ((growth / params[0].value) * 100).toFixed(1) : '新增';
+        html += '<span style="color:#E8CC9A;">增长：' + (params[0].value > 0 ? '+' + pct + '%' : pct) + '</span>';
+        return html;
+      }
+    },
+    grid: { left: 120, right: 60, top: 100, bottom: 60 },
+    xAxis: {
+      type: 'category',
+      data: places,
+      axisLabel:{margin:24, color: '#221C15', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 11, fontWeight: 500 },
+      axisLine: { lineStyle: { color: '#C8964E' } },
+      axisTick: { show: false },
+    },
+    yAxis: [
+      {
+        type: 'value', name: '月/日收入 (元)',
+        axisLabel:{margin:24, formatter: '{value}', color: '#5C5347', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#F5EDDF' } },
+      },
+      {
+        type: 'value', name: '年收入 (元)',
+        axisLabel:{margin:24, formatter: '{value}', color: '#5C5347', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 10 },
+        splitLine: { show: false },
+      }
+    ],
+    series: [
+      {
+        name: '之前',
+        type: 'bar',
+        data: beforeValues.map((v, i) => ({
+          value: v,
+          itemStyle: {
+            color: '#C8C0B4',
+            borderRadius: [0, 0, 0, 0],
+          }
+        })),
+        barWidth: 36,
+        barGap: '40%',
+        label: {
+          show: true,
+          position: 'bottom',
+          formatter: function(p) { return p.value > 0 ? p.value : ''; },
+          color: '#C8964E',
+          fontFamily: '"Noto Sans SC",sans-serif',
+          fontSize: 10,
+        },
+        emphasis: { itemStyle: { color: '#A8A098' } }
+      },
+      {
+        name: '之后',
+        type: 'bar',
+        data: afterValues.map((v, i) => ({
+          value: v,
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: '#D4453B' },
+              { offset: 1, color: '#A8322B' }
+            ]),
+            borderRadius: [6, 6, 0, 0],
+          }
+        })),
+        barWidth: 36,
+        yAxisIndex: (function() {
+          // Hebei year income uses right axis
+          return 0; // Simplified — all on left axis for now
+        })(),
+        label: {
+          show: true,
+          position: 'top',
+          formatter: '{c}',
+          color: '#D4453B',
+          fontFamily: '"Noto Sans SC",sans-serif',
+          fontSize: 12,
+          fontWeight: 700,
+        },
+        emphasis: {
+          itemStyle: { shadowBlur: 15, shadowColor: 'rgba(196,73,58,0.4)' },
+          label: { fontSize: 15 },
+        },
+        animationDuration: 1800,
+        animationEasing: 'elasticOut',
+      }
+    ]
+  };
+
+  chart.setOption(option);
+  window.addEventListener('resize', () => chart.resize());
+})();
+
+</script>
+
+    <div id="chart-growth" style="width:100%;height:460px;margin:1.5rem 0;"></div>
+<script>
+
+(function() {
+  const chart = echarts.init(document.getElementById("chart-growth"));
+
+  const years = ['2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'];
+  const workshops = [1200, 1500, 1900, 2500, 3600, 5000, 8000, 11000, 12900];
+  const milestones = [
+    { year: '2020', label: '全面脱贫\n收官之年', value: 2500 },
+    { year: '2022', label: '非遗工坊认定\n管理办法出台', value: 5000 },
+    { year: '2025', label: '覆盖2,138县\n1.29万余家', value: 12900 },
+  ];
+
+  const option = {
+    backgroundColor: '#F9F5EC',
+    title: {
+      text: '非遗工坊数量增长趋势',
+      subtext: '2017—2025 年 · 从星星之火到燎原之势',
+      left: 'center', top: 20,
+      textStyle: { fontFamily: '"Noto Serif SC","STKaiti","楷体",serif', fontSize: 22, color: '#221C15', fontWeight: 700 },
+      subtextStyle: { fontFamily: '"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif', fontSize: 12, color: '#5C5347' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(44,26,16,0.92)',
+      borderColor: '#D4453B',
+      textStyle: { color: '#F9F5EC', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 12 },
+      formatter: function(p) {
+        return p[0].axisValue + '年<br/>非遗工坊：<b style="color:#E8CC9A;font-size:16px;">' + p[0].value.toLocaleString('zh-CN') + '</b> 家';
+      }
+    },
+    grid: { left: 80, right: 40, top: 120, bottom:80 },
+    xAxis: {
+      type: 'category',
+      data: years,
+      axisLabel:{margin:24, formatter: '{value}年', color: '#5C5347', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 12 },
+      axisLine: { lineStyle: { color: '#C8964E' } },
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      name: '家',
+      axisLabel:{margin:24, formatter: function(v) { return v >= 10000 ? (v/10000).toFixed(1) + '万' : v; }, color: '#5C5347', fontFamily: '"Noto Sans SC",sans-serif', fontSize: 10 },
+      splitLine: { lineStyle: { color: '#F5EDDF' } },
+    },
+    series: [
+      {
+        type: 'line',
+        data: workshops,
+        smooth: true,
+        showSymbol: true,
+        symbol: 'circle',
+        symbolSize: 8,
+        lineStyle: { color: '#D4453B', width: 3 },
+        itemStyle: { color: '#D4453B', borderColor: '#F9F5EC', borderWidth: 2 },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(196,73,58,0.2)' },
+            { offset: 1, color: 'rgba(196,73,58,0.02)' }
+          ])
+        },
+        label: {
+          show: true,
+          position: 'top',
+          formatter: function(p) {
+            const v = p.value;
+            if (v >= 10000) return (v/10000).toFixed(1) + '万';
+            if (v >= 1000) return (v/1000).toFixed(1) + 'k';
+            return v;
+          },
+          color: '#221C15',
+          fontFamily: '"Noto Sans SC",sans-serif',
+          fontSize: 11,
+          fontWeight: 600,
+        },
+        emphasis: {
+          focus: 'series',
+          symbolSize: 14,
+          label: { fontSize: 14, color: '#D4453B', fontWeight: 700 },
+        },
+        animationDuration: 2000,
+        animationEasing: 'cubicOut',
+        markPoint: {
+          data: [
+            { name: '2022', coord: ['2022', 5000], value: '认定管理办法出台', symbol: 'pin', symbolSize: 40, itemStyle: { color: '#C8964E' } },
+            { name: '2025', coord: ['2025', 12900], value: '1.29万余家', symbol: 'pin', symbolSize: 50, itemStyle: { color: '#D4453B' } },
+          ],
+          label: {
+            fontFamily: '"Noto Sans SC",sans-serif',
+            fontSize: 10,
+            color: '#221C15',
+          },
+        },
+      },
+    ]
+  };
+
+  chart.setOption(option);
+  window.addEventListener('resize', () => chart.resize());
+})();
+
+</script>
+
+    <div class="inline-photo-row reveal">
+      <div class="inline-photo" data-lightbox><img src="assets/images/img-2b38d886.jpg" alt="工坊培训"></div>
+      <div class="inline-photo" data-lightbox><img src="assets/images/img-4ca9c26e.jpg" alt="绣品展示"></div>
+    </div>
+
+    <p class="narrative reveal">
+      全国已有 100 余所高校设立非遗保护本科专业，200 余所高校参与中国非遗传承人研修培训计划，超过 <strong>10 万名非遗传承人</strong>走进大学课堂。"十四五"累计开展培训 50 万余次，培训 1,500 万余人次。<span class="data-source">来源：央视新闻、中华人民共和国文化和旅游部</span>
+    </p>
+    <p class="narrative reveal">
+      越来越多的女性参与其中，传统技艺逐渐从"会做"变成"可就业"。一根绣线连接起文化传承与现实生活，让更多女性成为乡村产业发展的参与者和助力者。细密的针脚不仅绣出精美的作品，也织就家庭更加稳定的生活。
+    </p>
+  </div>
+</section>
+
+<div class="section-divider" style="background:var(--indigo-deep);">
+  <svg viewBox="0 0 160 30"><line class="divider-line" x1="0" y1="15" x2="160" y2="15" stroke="var(--gold)"/><circle class="divider-dot" cx="80" cy="15" r="3" fill="var(--gold)"/></svg>
+</div>
+
+<!-- ============================================================
+     CONCLUSION
+     ============================================================ -->
+<section id="conclusion" data-theme="dark">
+  <div class="section-bg parallax" data-parallax="0.15"><img src="assets/images/img-b74f54ca.jpg" alt=""></div>
+  <div class="section-inner" style="text-align:center;">
+    <div class="section-num reveal" style="font-size:9rem;">∞</div>
+    <p class="reveal" style="font-family:var(--sans);font-size:0.8rem;color:var(--gold);letter-spacing:0.2em;text-align:center;margin-bottom:0.3rem;">收针</p><h2 class="section-heading reveal">一根绣线的答案</h2>
+
+    <div class="inline-photo reveal" data-lightbox>
+      <img src="assets/images/img-bce038cd.jpg" alt="绣线连接" style="max-width:500px;margin:0 auto;">
+    </div>
+
+    <p class="narrative reveal">无论是贵州苗绣、广西壮锦还是西藏藏毯，无数女性用双手重复着相似的动作。针线在布面间穿梭，纹样在岁月中延续。那些曾经藏在节庆服饰里的文化记忆，正以新的方式融入当下的生活。</p>
+
+    <!-- 关键数据回顾 -->
+    <div class="reveal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;max-width:700px;margin:2rem auto;text-align:center;">
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:1.5rem 0.8rem;">
+        <div style="font-family:var(--sans);font-size:2rem;font-weight:800;color:var(--vermillion);">1.29<span style="font-size:0.8rem;"> 万</span></div>
+        <div style="font-family:var(--sans);font-size:0.7rem;color:rgba(253,248,240,0.5);">全国非遗工坊</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:1.5rem 0.8rem;">
+        <div style="font-family:var(--sans);font-size:2rem;font-weight:800;color:var(--vermillion);">120<span style="font-size:0.8rem;"> 万</span></div>
+        <div style="font-family:var(--sans);font-size:0.7rem;color:rgba(253,248,240,0.5);">带动就业人数</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:1.5rem 0.8rem;">
+        <div style="font-family:var(--sans);font-size:2rem;font-weight:800;color:var(--vermillion);">92<span style="font-size:0.8rem;">%</span></div>
+        <div style="font-family:var(--sans);font-size:0.7rem;color:rgba(253,248,240,0.5);">从业者为留守妇女</div>
+      </div>
+    </div>
+
+    <div id="chart-network" style="width:100%;height:900px;margin:1.5rem 0;"></div>
+<script>
+
+(function(){
+  const C={vermillion:'#D4453B',gold:'#C8964E',teal:'#5C8B7A'};
+  const themes=[
+    {name:'女性就业',angle:-90,dist:460,color:C.gold,size:85,stat:'50万',desc:'贵州"锦绣计划"\n带动妇女就业'},
+    {name:'家庭增收',angle:-38,dist:490,color:C.teal,size:80,stat:'3.8万元',desc:'非遗工坊从业人员\n人均年收入'},
+    {name:'非遗传承',angle:12,dist:470,color:C.gold,size:83,stat:'9万+',desc:'各级非遗\n代表性传承人'},
+    {name:'青年参与',angle:58,dist:500,color:C.teal,size:77,stat:'80%',desc:'云南鹤庆银器工坊\n90后00后占比'},
+    {name:'工坊发展',angle:112,dist:480,color:C.gold,size:81,stat:'1.29万',desc:'全国非遗工坊\n覆盖2,138个县'},
+    {name:'文旅融合',angle:168,dist:460,color:C.teal,size:78,stat:'千亿',desc:'2024年遵义\n旅游收入破千亿'},
+    {name:'乡村振兴',angle:218,dist:490,color:C.gold,size:85,stat:'120万',desc:'非遗工坊带动\n相关产业链就业'},
+  ];
+  const PI=Math.PI;
+  const nodes=[{
+    name:'一根绣线',x:0,y:0,symbolSize:200,
+    itemStyle:{color:C.vermillion,shadowBlur:40,shadowColor:'rgba(212,69,59,0.5)'},
+    label:{show:true,position:'inside',formatter:'一根\n绣线',color:'#F9F5EC',fontFamily:'"Noto Serif SC","STKaiti","楷体",serif',fontSize:36,fontWeight:900,lineHeight:42},
+    symbol:'roundRect',symbolKeepAspect:true,
+  },...themes.map(t=>({
+    name:t.name,x:Math.cos(t.angle*PI/180)*t.dist,y:Math.sin(t.angle*PI/180)*t.dist,
+    symbolSize:t.size,itemStyle:{color:t.color,shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'},
+    label:{show:true,position:'inside',formatter:t.name,color:t.color===C.gold?'#1A2535':'#F9F5EC',fontFamily:'"Noto Sans SC",sans-serif',fontSize:20,fontWeight:800},
+    stat:t.stat,desc:t.desc,symbol:'roundRect',symbolKeepAspect:true,
+  }))];
+  const links=themes.map(t=>({source:'一根绣线',target:t.name,lineStyle:{color:t.color,width:3,opacity:0.65,curveness:0.12}}));
+
+  const c=echarts.init(document.getElementById("chart-network"));
+  c.setOption({
+    backgroundColor:'#1A2535',
+    title:{text:'一根绣线，连接了什么？',subtext:'悬停节点查看详情',left:'center',top:0,
+      textStyle:{fontFamily:'"Noto Serif SC","STKaiti","楷体",serif',fontSize:28,color:'#F9F5EC',fontWeight:900},
+      subtextStyle:{fontFamily:'"Noto Sans SC",sans-serif',fontSize:13,color:'#C8964E'}},
+    tooltip:{trigger:'item',backgroundColor:'rgba(26,37,53,0.96)',borderColor:C.gold,
+      textStyle:{color:'#F9F5EC',fontFamily:'"Noto Sans SC",sans-serif',fontSize:14},
+      formatter:function(p){
+        if(p.dataType==='node'&&p.data.stat)return '<b style="font-size:16px">'+p.name+'</b><br/><b style="color:#E8CC9A;font-size:26px">'+p.data.stat+'</b><br/><span style="color:#C8964E">'+p.data.desc+'</span>';
+        if(p.name==='一根绣线')return '<b style="font-size:18px">🧵 一根绣线</b><br/><span style="color:#C8964E">从苗寨织机到广袤市场</span>';
+        return p.name;
+      }},
+    animationDuration:2500,animationEasing:'elasticOut',
+    series:[{type:'graph',layout:'none',data:nodes,links:links,roam:false,draggable:false,
+      emphasis:{focus:'adjacency',scale:1.3,itemStyle:{shadowBlur:30},label:{fontSize:22},lineStyle:{width:5}},
+      lineStyle:{opacity:0.55,curveness:0.12},label:{position:'inside'},
+    }]
+  });
+  window.addEventListener('resize',()=>c.resize());
+})();
+
+</script>
+
+    <p class="narrative reveal">绣娘在这里找到了新的人生价值。她们不仅是技艺的传承者，也是工坊里的老师。新一代传承者围坐在身旁，学习每种纹样背后的寓意。那些曾经仅依靠亲缘关系口耳相传的传统技艺，逐渐转变成就业技能与文化延续。</p>
+
+    <p class="narrative reveal">全国已有 <strong>100 余所高校</strong>设立非遗保护本科专业，<strong>200 余所高校</strong>参与研培计划，超过 <strong>10 万名</strong>非遗传承人走进大学课堂。越来越多的年轻人回到家乡，用新的眼光激活古老的手艺——云南鹤庆银器工坊里，90 后、00 后占到 <strong>80% 以上</strong>。</p>
+
+    <div class="narrative reveal" style="font-size:1.25rem;line-height:2.3;max-width:580px;margin:2rem auto 3rem;">
+      <p>一根绣线能有多长？它从苗寨的织机出发，穿过高铁、直播间和快递盒，抵达城市的客厅与展馆的玻璃柜。</p>
+      <p>但更重要的是——它穿过了偏见，穿过了贫困，穿过了"女人就该待在家里"的旧观念，<strong>在每一个绣娘的手上，绣出一个崭新的答案。</strong></p>
+      <p style="color:var(--gold-light);">绣线很细，却串联起一个个家庭的生计；技艺古老，却承载着面向未来的新可能。一针一线汇聚成经纬，绣出的不仅是非遗传承的图景，更是文化扎根乡土、赋能发展的时代脉络。</p>
+    </div>
+
+    <footer class="page-footer reveal">
+      <p><strong>数据来源：</strong>文化和旅游部、中国非物质文化遗产保护中心、贵州省妇联"锦绣计划"、各省文旅厅官网、产业调研报告</p>
+      <p><strong>参考文献：</strong>人民日报、新华网、光明网、中国艺术报、澎湃新闻、央视网、经济参考网等</p>
+      <p>中央民族大学新闻与传播学院 · 第十届中国数据新闻大赛参赛作品</p>
+    </footer>
+  </div>
+</section>
+
+
+<div class="section-divider" style="background:var(--paper);">
+  <svg viewBox="0 0 160 30"><line class="divider-line" x1="0" y1="15" x2="160" y2="15"/><circle class="divider-dot" cx="80" cy="15" r="3"/></svg>
+</div>
+<section id="references" data-theme="light" style="min-height:auto;padding-top:2rem;padding-bottom:4rem;">
+  <div class="section-inner">
+    <h2 class="section-heading reveal" style="font-size:1.6rem;">参考文献与报道链接</h2>
+    <div class="ref-grid reveal">
+      <div class="ref-group"><h4>全国数据</h4>
+        <a href="http://paper.people.com.cn/rmrb/pad/content/202506/29/content_30083090.html" target="_blank">人民日报 · 用画笔记录中国高质量发展</a>
+        <a href="https://www.jjckb.cn/20251002/a2db5d8dbae748a18b4e4ea7be2632d6/c.html" target="_blank">经济参考网 · 全国非遗工坊已达1.29万余家</a>
+        <a href="https://baike.baidu.com/item/%E9%9D%9E%E9%81%97%E5%B7%A5%E5%9D%8A" target="_blank">百度百科 · 非遗工坊词条</a>
+        <a href="https://www.cflac.org.cn/new_zt/ku/2026/lh/dbwy/202603/t20260311_1361403.html" target="_blank">中国艺术报 · 非遗工坊从业人员收入</a>
+        <a href="https://www.cinic.org.cn/whys/whyc/1565647.html" target="_blank">中国产业经济信息网 · 非遗工坊数据</a>
+      </div>
+      <div class="ref-group"><h4>各省工坊</h4>
+        <a href="https://www.sc.gov.cn/10462/10464/10465/10574/2025/6/17/2ba2d67ad338475ca7a452a5e6f2e4cb.shtml" target="_blank">四川日报 · 四川1,287家非遗工坊</a>
+        <a href="https://whlyj.beijing.gov.cn/zwgk/tzgg/202511/t20251117_4283348.html" target="_blank">北京市文旅局 · 首批25家非遗工坊</a>
+        <a href="https://wlt.fujian.gov.cn/wldt/btdt/202407/t20240729_6491328.htm" target="_blank">福建省文旅厅 · 福建219家非遗工坊</a>
+        <a href="http://www.gansu.gov.cn/gsszf/c119552/202510/174227323.shtml" target="_blank">甘肃省政府 · 甘肃121家非遗工坊</a>
+        <a href="https://admin.cq.gov.cn/ywdt/jrcq/202606/t20260614_15751729.html" target="_blank">重庆日报 · 重庆203个非遗工坊</a>
+        <a href="http://nm.people.com.cn/BIG5/n2/2025/1203/c196689-41430660.html" target="_blank">人民网内蒙古 · 内蒙古472家非遗工坊</a>
+      </div>
+      <div class="ref-group"><h4>女性参与</h4>
+        <a href="http://new.chinareports.org.cn/index.php/index/news/69091.html" target="_blank">中国报道 · 广州非遗从业者女性占比78.72%</a>
+        <a href="https://www.cnwomen.com.cn/2025/08/23/99740774.html" target="_blank">中国妇女网 · 黔西南州妇联培训数据</a>
+        <a href="https://www.thepaper.cn/newsDetail_forward_33312257" target="_blank">澎湃新闻 · 广西八桂巧娘带动10.2万妇女就业</a>
+      </div>
+      <div class="ref-group"><h4>贵州锦绣计划</h4>
+        <a href="https://gz.cnr.cn/" target="_blank">央广网贵州频道 · 锦绣计划</a>
+        <a href="https://gzstv.com/a/0c9c1455ba6b460499c749042d4c283d" target="_blank">贵州广播电视台 · 丹寨县锦绣计划</a>
+        <a href="http://gz.xinhuanet.com/20251103/6e6d71f99051464b9b3e77b2e2222bfc/c.html" target="_blank">新华网贵州 · 台江县锦绣计划基地</a>
+        <a href="https://mzw.guizhou.gov.cn/xwzx/gzdt/202606/t20260616_90529250.html" target="_blank">贵州省民宗委 · 化屋村绣娘收入变化</a>
+      </div>
+      <div class="ref-group"><h4>化屋村 / 杨文丽工坊</h4>
+        <a href="https://feiyi.gmw.cn/2026-05/25/content_38786943.htm" target="_blank">中国非遗网 · 杨文丽专访</a>
+        <a href="https://www.ihchina.cn/art/detail/id/30862.html" target="_blank">中国非遗网 · 化屋村63名绣娘就业</a>
+        <a href="http://society.people.com.cn/n1/2025/0917/c1008-40566048.html" target="_blank">人民网 · 化屋村绣娘月收入</a>
+        <a href="https://city.news.cctv.com/2025/03/06/ARTIR84IUWtlIpBQFfKPOzJu250306.shtml" target="_blank">央视网 · 化屋村人均可支配收入3.08万</a>
+      </div>
+      <div class="ref-group"><h4>收入变化</h4>
+        <a href="https://www.163.com/dy/article/KJPOQ82M05328VPM.html" target="_blank">中国网三农 · 广西靖西绣球收入变化</a>
+        <a href="https://gz.cnr.cn/hezuo/20260519/t20260519_527626760.shtml" target="_blank">央广网 · 贵定花苗记忆工坊增收</a>
+        <a href="https://gz.cri.cn/n/20251104/709bdca1-9eef-6dc7-e5be-1f466f34b80a.html" target="_blank">国际在线 · 贵州锦绣馆绣娘月增收</a>
+        <a href="https://www.hebei.gov.cn/columns/580d0301-2e0b-4152-9dd1-7d7f4e0f4980/202602/05/ed644b70-49b7-4fb9-bee0-ee15a07a5652.html" target="_blank">河北省政府 · 武强木版年画工坊</a>
+        <a href="https://wlt.fujian.gov.cn/wldt/btdt/202503/t20250318_6784425.htm" target="_blank">福建省文旅厅 · 绿雪芽非遗工坊年收入</a>
+      </div>
+      <div class="ref-group"><h4>培训与传承</h4>
+        <a href="https://news.cctv.com/2025/11/26/ARTIpcO7ChFiO2UkGUMO0dst251126.shtml" target="_blank">央视新闻 · 100余所高校设立非遗专业</a>
+        <a href="https://feiyi.gmw.cn/2023-12/14/content_37029170.htm" target="_blank">光明网 · 国家级非遗代表性项目1,557项</a>
+        <a href="https://www.ihchina.cn/art/detail/id/28842.html" target="_blank">中国非遗网 · 各级非遗传承人9万余名</a>
+        <a href="https://www.sohu.com/a/876950962_639898" target="_blank">搜狐 · 浙江非遗工坊培训数据</a>
+        <a href="https://www.cq.gov.cn/ywdt/zwhd/bmdt/202504/t20250418_14534285.html" target="_blank">重庆市政府 · 重庆非遗工坊培训</a>
+        <a href="https://www.workercn.cn/c/2025-01-17/8438540.shtml" target="_blank">中工网 · 黑龙江非遗工坊培训</a>
+      </div>
+      <div class="ref-group"><h4>相关延伸</h4>
+        <a href="https://news.youth.cn/jsxw/202505/t20250503_15980175.htm" target="_blank">中国青年网 · 云南鹤庆银器青年占比</a>
+        <a href="https://www.bijie.gov.cn/bm/bjsmzzjswj/zwgk/mzzj/202511/t20251111_88932835.html" target="_blank">毕节市政府 · 巧姊妹非遗工坊</a>
+        <a href="https://www.gx.chinanews.com.cn/sh/2025-12-31/detail-iheymhtf5107934.shtml" target="_blank">中新网广西 · 龙州绣娘收益金</a>
+        <a href="https://gd.cri.cn/n/20251225/a3215b63-4481-9cd5-4bc5-94971a67748e.html" target="_blank">国际在线 · 广州非遗女性从业者</a>
+        <a href="https://news.qq.com/rain/a/20251203A03FJQ00" target="_blank">腾讯新闻 · 内蒙古非遗工坊就业</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* ================================================================
+   1. MOUSE THREAD TRAIL (canvas, desktop only)
+   ================================================================ */
+const trailCanvas=document.getElementById('thread-trail');
+if(trailCanvas&&window.innerWidth>768&&window.matchMedia('(prefers-reduced-motion:no-preference)').matches){
+  const ctx=trailCanvas.getContext('2d');
+  let w,h,trail=[],maxTrail=40;
+  function resize(){w=trailCanvas.width=window.innerWidth;h=trailCanvas.height=window.innerHeight}
+  resize();window.addEventListener('resize',resize);
+
+  document.addEventListener('mousemove',e=>{
+    trail.push({x:e.clientX,y:e.clientY,age:0});
+    if(trail.length>maxTrail)trail.shift();
+  });
+
+  function drawTrail(){
+    ctx.clearRect(0,0,w,h);
+    if(trail.length<2){requestAnimationFrame(drawTrail);return}
+    ctx.beginPath();ctx.moveTo(trail[0].x,trail[0].y);
+    for(let i=1;i<trail.length;i++){
+      const p0=trail[i-1],p1=trail[i];
+      const cpx=(p0.x+p1.x)/2,cpy=(p0.y+p1.y)/2;
+      ctx.quadraticCurveTo(p0.x,p0.y,cpx,cpy);
+    }
+    const last=trail[trail.length-1];
+    ctx.lineTo(last.x,last.y);
+    ctx.strokeStyle='rgba(196,73,58,0.35)';ctx.lineWidth=1.8;ctx.lineCap='round';
+    ctx.shadowColor='rgba(196,73,58,0.3)';ctx.shadowBlur=6;
+    ctx.stroke();ctx.shadowBlur=0;
+    // Age and decay trail
+    for(let i=trail.length-1;i>=0;i--){trail[i].age++;if(trail[i].age>maxTrail)trail.splice(i,1)}
+    requestAnimationFrame(drawTrail);
+  }
+  drawTrail();
+}
+
+/* ================================================================
+   2. THREAD SPINE
+   ================================================================ */
+const tm=document.getElementById('thread-main'),tg=document.getElementById('thread-gold'),ts=document.getElementById('thread-shadow-line'),ng=document.getElementById('needle-group'),knots=document.querySelectorAll('.thread-knot'),PL=1400;
+let tt=!1;
+function ut(){
+  const s=window.scrollY,dh=document.documentElement.scrollHeight-window.innerHeight,p=dh>0?Math.min(s/dh,1):0,o=PL-p*PL;
+  if(tm)tm.setAttribute('stroke-dashoffset',o);if(tg)tg.setAttribute('stroke-dashoffset',o);if(ts)ts.setAttribute('stroke-dashoffset',o);
+  if(ng){ng.setAttribute('transform','translate(0,'+(p*1160-20)+')')}
+  knots.forEach(k=>{if(Math.abs(p*1160-parseFloat(k.getAttribute('cy')))<35)k.classList.add('lit')})
+}
+window.addEventListener('scroll',()=>{if(!tt){requestAnimationFrame(()=>{ut();tt=!1});tt=!0}},{passive:!0});
+
+/* ================================================================
+   3. PARALLAX
+   ================================================================ */
+const parallaxEls=document.querySelectorAll('.parallax');
+let pt=!1;
+function updateParallax(){
+  const sh=window.innerHeight,st=window.scrollY;
+  parallaxEls.forEach(el=>{
+    const rect=el.getBoundingClientRect();
+    if(rect.bottom>0&&rect.top<sh){
+      const speed=parseFloat(el.dataset.parallax||0.3);
+      const offset=(rect.top-sh)*speed*0.4;
+      el.style.transform='translateY('+offset+'px)';
+    }
+  });
+}
+window.addEventListener('scroll',()=>{if(!pt){requestAnimationFrame(()=>{updateParallax();pt=!1});pt=!0}},{passive:!0});
+
+/* ================================================================
+   4. LIGHTBOX (click photo to enlarge)
+   ================================================================ */
+const lb=document.getElementById('lightbox'),lbImg=document.getElementById('lightbox-img');
+document.querySelectorAll('[data-lightbox]').forEach(el=>{
+  el.addEventListener('click',()=>{
+    const img=el.querySelector('img')||el;
+    lbImg.src=img.src;lb.classList.add('active');
+  });
+});
+lb.addEventListener('click',()=>lb.classList.remove('active'));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')lb.classList.remove('active')});
+
+/* ================================================================
+   5. BEFORE/AFTER SLIDER
+   ================================================================ */
+const slider=document.getElementById('income-slider');
+if(slider){
+  const after=slider.querySelector('.compare-after'),handle=slider.querySelector('.compare-handle'),hint=slider.querySelector('.compare-hint');
+  let dragging=!1,hintShown=!0;
+  function setSplit(x){
+    const rect=slider.getBoundingClientRect(),pct=Math.max(5,Math.min(95,((x-rect.left)/rect.width)*100));
+    after.style.clipPath='inset(0 '+ (100-pct)+'% 0 0)';handle.style.left=pct+'%';
+  }
+  slider.addEventListener('mousedown',e=>{dragging=!0;if(hintShown){hint.style.display='none';hintShown=!1};setSplit(e.clientX);e.preventDefault()});
+  slider.addEventListener('touchstart',e=>{dragging=!0;if(hintShown){hint.style.display='none';hintShown=!1};setSplit(e.touches[0].clientX)});
+  window.addEventListener('mousemove',e=>{if(dragging)setSplit(e.clientX)});
+  window.addEventListener('touchmove',e=>{if(dragging)setSplit(e.touches[0].clientX)},{passive:!0});
+  window.addEventListener('mouseup',()=>dragging=!1);
+  window.addEventListener('touchend',()=>dragging=!1);
+}
+
+/* ================================================================
+   6. EXPANDABLE KPI CARDS
+   ================================================================ */
+document.querySelectorAll('[data-expand]').forEach(card=>{
+  const toggle=card.querySelector('.card-toggle');
+  card.addEventListener('click',function(e){
+    card.classList.toggle('expanded');
+    toggle.textContent=card.classList.contains('expanded')?'点击收起 ▴':'点击展开详情 ▸';
+  });
+});
+
+/* ================================================================
+   7. NAV
+   ================================================================ */
+const secs=document.querySelectorAll('section[id]'),dots=document.querySelectorAll('#section-nav a'),sh=document.getElementById('scroll-hint');
+const so=new IntersectionObserver(e=>{e.forEach(e=>{if(e.isIntersecting){const i=parseInt(e.target.dataset.sectionIdx||-1);if(i>=0)dots.forEach((d,j)=>d.classList.toggle('active',j===i))}})},{rootMargin:'-35% 0px -35% 0px',threshold:0});
+secs.forEach((s,i)=>{s.dataset.sectionIdx=i;so.observe(s)});
+let hd=!1;window.addEventListener('scroll',()=>{if(!hd&&window.scrollY>200&&sh){sh.classList.add('hidden');hd=!0}},{passive:!0});
+
+/* ================================================================
+   8. REVEAL ON SCROLL
+   ================================================================ */
+const ro=new IntersectionObserver(e=>{e.forEach(e=>{if(e.isIntersecting){e.target.classList.add('on');e.target.querySelectorAll('.counter').forEach(c=>cu(c));if(e.target.classList.contains('counter'))cu(e.target)}})},{rootMargin:'0px 0px -6% 0px',threshold:0});
+document.querySelectorAll('.reveal,.stagger').forEach(el=>ro.observe(el));
+
+/* ================================================================
+   9. COUNTER
+   ================================================================ */
+function cu(el){if(el.dataset.counting==='true')return;el.dataset.counting='true';const t=parseFloat(el.dataset.target);if(isNaN(t))return;const d=2200,t0=performance.now(),iv=parseFloat(el.textContent.replace(/[^0-9.]/g,''))||0;function tick(n){const p=Math.min((n-t0)/d,1),v=iv+(t-iv)*(1-Math.pow(1-p,3));el.textContent=t>=1000&&Number.isInteger(t)?Math.round(v).toLocaleString('zh-CN'):t%1!==0?v.toFixed(2):Math.round(v).toString();if(p<1)requestAnimationFrame(tick);else el.textContent=t>=1000&&Number.isInteger(t)?t.toLocaleString('zh-CN'):t.toString()}requestAnimationFrame(tick)}
+
+/* ================================================================
+   10. EMBED LOADER
+   ================================================================ */
+function le(z){if(z.dataset.loaded==='true')return;const u=z.dataset.embedUrl;if(!u){z.dataset.loaded='true';return}const h=z.style.minHeight||'400px';const f=document.createElement('iframe');f.src=u;f.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups');f.style.cssText='width:100%;height:'+h+';border:none;display:block';z.innerHTML='';z.appendChild(f);z.classList.add('embed-zone--loaded');z.dataset.loaded='true'}
+setTimeout(function(){document.querySelectorAll('.embed-zone[data-embed-url]').forEach(z=>le(z))},200);
+
+/* ================================================================
+   11. GALLERY DRAG-TO-SCROLL
+   ================================================================ */
+document.querySelectorAll('.gallery-track').forEach(gallery=>{
+  let down=!1,startX=0,scrollLeft=0;
+  gallery.addEventListener('mousedown',e=>{down=!0;gallery.style.cursor='grabbing';startX=e.pageX-gallery.offsetLeft;scrollLeft=gallery.scrollLeft});
+  gallery.addEventListener('mouseleave',()=>{down=!1;gallery.style.cursor='grab'});
+  gallery.addEventListener('mouseup',()=>{down=!1;gallery.style.cursor='grab'});
+  gallery.addEventListener('mousemove',e=>{if(!down)return;e.preventDefault();const x=e.pageX-gallery.offsetLeft;gallery.scrollLeft=scrollLeft-(x-startX)*1.5});
+  gallery.addEventListener('touchstart',e=>{down=!0;startX=e.touches[0].pageX-gallery.offsetLeft;scrollLeft=gallery.scrollLeft});
+  gallery.addEventListener('touchend',()=>{down=!1});
+  gallery.addEventListener('touchmove',e=>{if(!down)return;const x=e.touches[0].pageX-gallery.offsetLeft;gallery.scrollLeft=scrollLeft-(x-startX)*1.5});
+});
+
+/* ================================================================
+   12. NAV CLICK + REDUCED MOTION
+   ================================================================ */
+dots.forEach(d=>{d.addEventListener('click',e=>{e.preventDefault();const t=document.querySelector(d.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'})})});
+const mq=window.matchMedia('(prefers-reduced-motion:reduce)');function rm(e){if(e.matches){document.documentElement.style.setProperty('--slow','0ms');document.documentElement.style.setProperty('--mid','0ms');document.querySelectorAll('.reveal,.stagger').forEach(el=>el.classList.add('on'))}}mq.addEventListener('change',rm);rm(mq);
+
+/* CUSTOM CURSOR */
+(function(){
+  var img=new Image();
+  img.onload=function(){
+    try{
+      var c=document.createElement('canvas');
+      var w=120,h=Math.round(img.height*w/img.width);
+      c.width=w;c.height=h;
+      var ctx=c.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      var url=c.toDataURL('image/png');
+      document.body.style.cursor='url('+url+') '+Math.round(w/2)+' 8, auto';
+      console.log('🧵 针形光标已设置 ('+w+'x'+h+')');
+    }catch(e){console.log('光标设置失败:',e.message)}
+  };
+  img.onerror=function(){console.log('针图加载失败')};
+  img.src='assets/images/needle-cursor.png';
+})();
+
+/* INIT */
+(function(){var a=document.getElementById("bg-music");var b=document.getElementById("music-toggle");var p=false;a.volume=0.6;a.loop=true;function start(){a.play().then(function(){p=true;b.classList.add("playing");b.innerHTML="♪ 播放中"}).catch(function(){})}function stop(){a.pause();p=false;b.classList.remove("playing");b.innerHTML="♪ 背景音乐"}b.onclick=function(){p?stop():start()};b.style.display="flex";document.addEventListener("click",start,{once:true})})();ut();updateParallax();console.log('🧵 一根绣线 — 全部图表就绪 v2');
+})();
+</script>
+<audio id="bg-music" src="assets/music.mp3" loop preload="auto"></audio><button class="music-btn" id="music-toggle">♪ 背景音乐</button></body>
+</html>
