@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<meta name="description" content="一根绣线能有多长？——非遗工坊赋能乡村女性的数据新闻故事">
+<meta name="description" content="一根绣线">
 <meta property="og:title" content="一根绣线">
 <meta property="og:image" content="assets/images/a8d93f39200f7880f20362aca804f0ed.jpg">
 <title>一根绣线</title>
@@ -257,12 +257,12 @@ section{min-height:auto;position:relative;display:flex;align-items:center;paddin
 }
 .hero-line--bot{
   font-family:var(--serif);
-  font-size:clamp(4rem,9vw,9rem);
-  font-weight:900;
-  line-height:1.15;
+  font-size:clamp(1.5rem,3.5vw,3.5rem);
+  font-weight:400;
+  line-height:1.4;
   letter-spacing:0.06em;
   animation-delay:0.35s;
-  margin-top:0.1em;
+  margin-top:0.3em;
   color:var(--paper);
 }
 /* "线"字突出：末笔连接绣线 */
@@ -286,7 +286,7 @@ section{min-height:auto;position:relative;display:flex;align-items:center;paddin
 }
 @media(max-width:480px){
   .hero-line--top{font-size:2.8rem}
-  .hero-line--bot{font-size:2.4rem}
+  .hero-line--bot{font-size:1.5rem}
   .hero-thread-extend{width:50px;height:150px}
 }
 
@@ -356,7 +356,7 @@ section{min-height:auto;position:relative;display:flex;align-items:center;paddin
 @media(max-width:1024px){section{padding-left:110px}}
 @media(max-width:768px){
   section{padding:3rem 1.5rem}#thread-spine{display:none}#section-nav{right:6px}#section-nav a{width:5px;height:5px}
-  .section-num{font-size:4.5rem}.hero-line--top{font-size:3.5rem}.hero-line--bot{font-size:3rem}.inline-photo-row{grid-template-columns:1fr}.photo-strip{height:220px}
+  .section-num{font-size:4.5rem}.hero-line--top{font-size:3.5rem}.hero-line--bot{font-size:1.8rem}.inline-photo-row{grid-template-columns:1fr}.photo-strip{height:220px}
   #thread-trail{display:none}.compare-slider{height:240px}
   .hero-content svg{width:280px;height:70px;top:-40px}
   [style*="margin-left:-16vw"],[style*="margin-left:-25vw"]{margin-left:0!important;width:100%!important;flex-direction:column!important;max-width:100%!important}
@@ -474,7 +474,7 @@ section{min-height:auto;position:relative;display:flex;align-items:center;paddin
     <!-- 大标题 -->
     <h1 class="hero-title">
       <span class="hero-line hero-line--top">一根绣线</span>
-      <span class="hero-line hero-line--bot">能有多长？</span>
+      <span class="hero-line hero-line--bot">能连接多少人的生活？</span>
     </h1>
     <p class="hero-subtitle">它穿过苗岭的晨雾，连起千万乡村女性的命运，<br>在布帛之上，绣出一个时代的答案。</p>
     <div class="hero-byline">第十届中国数据新闻大赛参赛作品</div>
@@ -1331,7 +1331,7 @@ section{min-height:auto;position:relative;display:flex;align-items:center;paddin
     <p class="narrative reveal">全国已有 <strong>100 余所高校</strong>设立非遗保护本科专业，<strong>200 余所高校</strong>参与研培计划，超过 <strong>10 万名</strong>非遗传承人走进大学课堂。越来越多的年轻人回到家乡，用新的眼光激活古老的手艺——云南鹤庆银器工坊里，90 后、00 后占到 <strong>80% 以上</strong>。</p>
 
     <div class="narrative reveal" style="font-size:1.25rem;line-height:2.3;max-width:580px;margin:2rem auto 3rem;">
-      <p>一根绣线能有多长？它从苗寨的织机出发，穿过高铁、直播间和快递盒，抵达城市的客厅与展馆的玻璃柜。</p>
+      <p>一根绣线，能连接多少人的生活？它从苗寨的织机出发，穿过高铁、直播间和快递盒，抵达城市的客厅与展馆的玻璃柜。</p>
       <p>但更重要的是——它穿过了偏见，穿过了贫困，穿过了"女人就该待在家里"的旧观念，<strong>在每一个绣娘的手上，绣出一个崭新的答案。</strong></p>
       <p style="color:var(--gold-light);">绣线很细，却串联起一个个家庭的生计；技艺古老，却承载着面向未来的新可能。一针一线汇聚成经纬，绣出的不仅是非遗传承的图景，更是文化扎根乡土、赋能发展的时代脉络。</p>
     </div>
@@ -1591,7 +1591,7 @@ const mq=window.matchMedia('(prefers-reduced-motion:reduce)');function rm(e){if(
 })();
 
 /* INIT */
-(function(){var a=document.getElementById("bg-music");var b=document.getElementById("music-toggle");var p=false;a.volume=0.6;a.loop=true;function start(){a.play().then(function(){p=true;b.classList.add("playing");b.innerHTML="♪ 播放中"}).catch(function(){})}function stop(){a.pause();p=false;b.classList.remove("playing");b.innerHTML="♪ 背景音乐"}b.onclick=function(){p?stop():start()};b.style.display="flex";document.addEventListener("click",start,{once:true})})();ut();updateParallax();console.log('🧵 一根绣线 — 全部图表就绪 v2');
+(function(){var a=document.getElementById("bg-music");var b=document.getElementById("music-toggle");var p=false;a.volume=0.6;a.loop=true;function start(){a.play().then(function(){p=true;b.classList.add("playing");b.innerHTML="♪ 播放中"}).catch(function(){})}function stop(){a.pause();p=false;b.classList.remove("playing");b.innerHTML="♪ 背景音乐"}b.onclick=function(){p?stop():start()};b.style.display="flex";document.addEventListener("click",start,{once:true})})();ut();updateParallax();console.log('🧵 一根绣线，能连接多少人的生活？');
 })();
 </script>
 <audio id="bg-music" src="assets/music.mp3" loop preload="auto"></audio><button class="music-btn" id="music-toggle">♪ 背景音乐</button></body>
