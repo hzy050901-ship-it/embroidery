@@ -133,7 +133,7 @@ function watchDir(dir) {
 
 server.listen(PORT, () => {
   console.log('');
-  console.log('  🧵  一根绣线 — Dev Server');
+  console.log('  🧵  针线之间 — Dev Server');
   console.log('  ════════════════════════════');
   console.log('  🌐  http://localhost:' + PORT);
   console.log('  🔄  auto-reload: ON  (save index.html to trigger)');
